@@ -59,6 +59,7 @@ function pulsesNeeded() {
 			<button class="os-button" type="button" data-go="settings">Settings</button>
 			<button class="os-button" type="button" data-go="snake">Snake</button>
 			<button class="os-button" type="button" data-go="portfolio" data-after="restored" hidden>Portfolio</button>
+			<button class="os-button" type="button" data-go="photos" data-after="restored" hidden>Photos</button>
 			<button class="os-button" type="button" data-go="link" data-after="goat" hidden>Ship link</button>
 		</nav>
 	</section>
@@ -81,9 +82,18 @@ function pulsesNeeded() {
 				<h3>GOAT, ship's AI</h3>
 				<p class="os-subject">Thank you</p>
 				<p>
-					We're clear of the rings. I could work out every path. I couldn't choose one. You did, and you
-					chose the people. I'll remember that. Call home, Administrator. Someone there should hear it from
-					you.
+					We're clear of the rings, and all 212 of us are going home. I wondered why the one voice out here
+					was yours, so I looked you up. Your name is in the credits of bezel.js, which my manual controls
+					are built on. I found the recording of your launch talk. Your last slide said: "Every panel should
+					have a way back to a person."
+				</p>
+				<p>
+					Today you were the person. I could work out every path. I couldn't choose one. You did, and you
+					chose the people. Call home, Administrator. Someone there should hear it from you.
+				</p>
+				<p>
+					P.S. I've put two tickets in your name for the Frontend Developer conference on Earth. It opens
+					soon. Don't be late.
 				</p>
 			</article>
 			<article data-id="channel" data-after="goat">
@@ -202,9 +212,9 @@ function pulsesNeeded() {
 		data-screen-name="settings"
 		aria-label="Settings"
 		data-restore-ask="Enter the backup password."
-		data-restore-done="Restoring BACKUP 2009… done. Your old portfolio is on the menu."
+		data-restore-done="Restoring BACKUP 2009 and PHOTOS 2011… done. Your old portfolio and photos are on the menu."
 		data-restore-wrong="Wrong password. You wrote it down somewhere you'd never lose it."
-		data-restored="Restored. Your portfolio is on the menu."
+		data-restored="Restored. Your portfolio and photos are on the menu."
 		hidden
 	>
 		<p class="os-title"><button class="os-back" type="button" data-go="home">‹ Menu</button> Settings</p>
@@ -213,7 +223,7 @@ function pulsesNeeded() {
 			<button class="os-button" type="button" data-setting="gravity">Enable</button>
 		</div>
 		<div class="os-setting">
-			<p>Restore from backup <span class="os-dim os-restore-state">Last backup: BACKUP 2009. Never restored.</span></p>
+			<p>Restore from backup <span class="os-dim os-restore-state">Backups: BACKUP 2009, PHOTOS 2011. Never restored.</span></p>
 			<button class="os-button" type="button" data-setting="restore">Restore</button>
 		</div>
 		<form class="os-restore" hidden>
@@ -267,6 +277,29 @@ function pulsesNeeded() {
 					phone. A dark mode for a bank. Things you only notice when they're missing.
 				</p>
 			</article>
+		</div>
+	</section>
+
+	<!-- Stand-ins, drawn by laptop.js, until there are real photos to dither. -->
+	<section class="os-screen os-photos" data-screen-name="photos" aria-label="Photos" hidden>
+		<p class="os-title"><button class="os-back" type="button" data-go="home">‹ Menu</button> Photos <span class="os-dim">from PHOTOS 2011</span></p>
+		<div class="os-album">
+			<figure>
+				<canvas class="os-photo" data-photo="mum" width="480" height="320" role="img" aria-label="Mum at the kitchen table, smiling, with the teapot."></canvas>
+				<figcaption>Mum. Sunday lunch.</figcaption>
+			</figure>
+			<figure>
+				<canvas class="os-photo" data-photo="barry" width="480" height="320" role="img" aria-label="Barry from next door, big and bearded, with a python round his shoulders and his tanks behind him."></canvas>
+				<figcaption>Barry next door, and Gerald.</figcaption>
+			</figure>
+			<figure>
+				<canvas class="os-photo" data-photo="hackday" width="480" height="320" role="img" aria-label="Jess and Marco behind their laptops under a banner that says Hack Day."></canvas>
+				<figcaption>Jess and Marco, hack day. We won best name.</figcaption>
+			</figure>
+			<figure>
+				<canvas class="os-photo" data-photo="launch" width="480" height="320" role="img" aria-label="Me on stage launching bezel.js. The slide says: Every panel should have a way back to a person."></canvas>
+				<figcaption>Launching bezel.js. Mum came.</figcaption>
+			</figure>
 		</div>
 	</section>
 
@@ -546,6 +579,26 @@ function pulsesNeeded() {
 	.os-step {
 		text-transform: none;
 		font-size: max(1.65cqw, 12px);
+	}
+	.os-album {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 2cqw 3cqw;
+		text-transform: none;
+		font-size: max(1.65cqw, 12px);
+	}
+	.os-album figure {
+		margin: 0;
+	}
+	.os-photo {
+		display: block;
+		width: 100%;
+		height: auto;
+		border: 0.2cqw solid rgb(207 233 236 / 0.4);
+		image-rendering: pixelated;
+	}
+	.os-album figcaption {
+		margin-top: 0.6cqw;
 	}
 	.os-entries article {
 		border-top: 0.2cqw solid rgb(207 233 236 / 0.4);

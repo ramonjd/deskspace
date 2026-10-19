@@ -75,6 +75,244 @@ function drawGoat(canvas, ink) {
 	}
 }
 
+// The photos on PHOTOS 2011 (Laptop.astro), stand-ins until there are real
+// ones: each is drawn small in greys, dithered to one-bit pixels in the
+// terminal's ink and scaled up square, the way an old photo shows on it.
+// Words in a picture (a banner, a slide) are cut out afterwards, sharp, so
+// they read. Each scene returns those words, in the small picture's units.
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const PHOTOS = {
+	mum({ s, tone, blob, box, shade }) {
+		shade(0.3, 0.18);
+		box(0, 0, 96, 64);
+		tone(1);
+		box(62, 6, 26, 22);
+		tone(0.2);
+		box(74, 6, 1.5, 22);
+		box(62, 16, 26, 1.5);
+		tone(0.6);
+		s.beginPath();
+		s.moveTo(22, 64);
+		s.quadraticCurveTo(24, 38, 40, 37);
+		s.quadraticCurveTo(56, 38, 58, 64);
+		s.fill();
+		tone(0.08);
+		for (const [x, y] of [[32, 20], [36, 16], [42, 15], [47, 18], [49, 24], [31, 27], [49, 30]]) blob(x, y, 5, 5);
+		tone(0.95);
+		blob(40, 26, 8, 9.5);
+		tone(0.1);
+		blob(37, 25, 1, 1.2);
+		blob(43, 25, 1, 1.2);
+		s.lineWidth = 1.2;
+		s.beginPath();
+		s.arc(40, 29, 3.5, 0.15 * Math.PI, 0.85 * Math.PI);
+		s.stroke();
+		tone(0.1);
+		box(0, 50, 96, 14);
+		tone(0.5);
+		box(0, 50, 96, 1.5);
+		tone(1);
+		blob(72, 46, 8, 6);
+		box(70, 38, 4, 3);
+		s.lineWidth = 2;
+		s.beginPath();
+		s.moveTo(65, 45);
+		s.lineTo(60, 40);
+		s.stroke();
+		s.beginPath();
+		s.arc(80, 46, 3.5, -Math.PI / 2, Math.PI / 2);
+		s.stroke();
+	},
+	barry({ s, tone, blob, box, shade }) {
+		shade(0.32, 0.2);
+		box(0, 0, 96, 64);
+		tone(0.1);
+		for (let x = 0; x < 96; x += 7) box(x, 30, 5, 34);
+		tone(0.05);
+		box(66, 30, 28, 22);
+		tone(0.42);
+		box(68, 32, 24, 18);
+		tone(0.15);
+		blob(76, 48, 5, 3);
+		blob(86, 47, 4, 3);
+		tone(0.55);
+		s.beginPath();
+		s.moveTo(14, 64);
+		s.quadraticCurveTo(16, 34, 38, 33);
+		s.quadraticCurveTo(60, 34, 62, 64);
+		s.fill();
+		tone(0.95);
+		blob(38, 20, 9, 10.5);
+		tone(0.12);
+		s.beginPath();
+		s.ellipse(38, 25, 9, 7, 0, 0, Math.PI);
+		s.fill();
+		tone(0.1);
+		blob(35, 18, 1, 1.2);
+		blob(41, 18, 1, 1.2);
+		tone(1);
+		blob(38, 12, 3, 1.5);
+		// Gerald, round his shoulders.
+		s.lineCap = 'round';
+		tone(0.92);
+		s.lineWidth = 6;
+		s.beginPath();
+		s.moveTo(12, 52);
+		s.bezierCurveTo(18, 30, 30, 40, 38, 36);
+		s.bezierCurveTo(48, 32, 58, 42, 66, 32);
+		s.stroke();
+		tone(0.1);
+		s.lineWidth = 2;
+		s.setLineDash([2, 3]);
+		s.stroke();
+		s.setLineDash([]);
+		tone(0.92);
+		blob(68, 30, 4, 3, -0.4);
+		tone(0.05);
+		s.lineWidth = 0.8;
+		s.beginPath();
+		s.moveTo(71, 28.5);
+		s.lineTo(75, 27);
+		s.stroke();
+	},
+	hackday({ s, tone, blob, box, shade }) {
+		shade(0.5, 0.25);
+		box(0, 0, 96, 64);
+		tone(1);
+		box(10, 3, 76, 12);
+		tone(0.08);
+		blob(30, 28, 9, 12);
+		box(21, 28, 18, 14);
+		tone(0.95);
+		blob(30, 26, 6.5, 8);
+		tone(0.1);
+		blob(27.5, 25, 1, 1.2);
+		blob(32.5, 25, 1, 1.2);
+		tone(0.65);
+		s.beginPath();
+		s.moveTo(16, 64);
+		s.quadraticCurveTo(18, 40, 30, 39);
+		s.quadraticCurveTo(42, 40, 44, 64);
+		s.fill();
+		tone(0.45);
+		s.beginPath();
+		s.moveTo(52, 64);
+		s.quadraticCurveTo(54, 40, 66, 39);
+		s.quadraticCurveTo(78, 40, 80, 64);
+		s.fill();
+		tone(0.95);
+		blob(66, 27, 7, 8.5);
+		tone(0.08);
+		s.beginPath();
+		s.ellipse(66, 22, 7.5, 5, 0, Math.PI, 2 * Math.PI);
+		s.fill();
+		s.lineWidth = 1;
+		for (const x of [63, 69]) {
+			s.beginPath();
+			s.arc(x, 27, 2.2, 0, Math.PI * 2);
+			s.stroke();
+		}
+		tone(0.12);
+		box(0, 55, 96, 9);
+		tone(0.75);
+		for (const x of [18, 54]) {
+			s.beginPath();
+			s.moveTo(x, 55);
+			s.lineTo(x + 3, 46);
+			s.lineTo(x + 21, 46);
+			s.lineTo(x + 24, 55);
+			s.fill();
+		}
+		tone(0.1);
+		blob(30, 50.5, 1.8, 1.8);
+		blob(66, 50.5, 1.8, 1.8);
+		tone(0.9);
+		box(82, 50, 14, 5);
+		return [{ text: 'HACK DAY', x: 48, y: 9.5, size: 9 }];
+	},
+	launch({ s, tone, blob, box }) {
+		tone(0.08);
+		box(0, 0, 96, 64);
+		tone(1);
+		box(40, 4, 52, 32);
+		const spot = s.createRadialGradient(18, 40, 2, 18, 40, 22);
+		spot.addColorStop(0, 'rgb(150 150 150)');
+		spot.addColorStop(1, 'rgb(20 20 20)');
+		s.fillStyle = spot;
+		box(0, 18, 38, 32);
+		tone(0.3);
+		box(0, 50, 96, 14);
+		tone(0.45);
+		box(0, 50, 96, 1.5);
+		tone(0.7);
+		s.beginPath();
+		s.moveTo(11, 50);
+		s.quadraticCurveTo(12, 35, 18, 34);
+		s.quadraticCurveTo(24, 35, 25, 50);
+		s.fill();
+		tone(1);
+		blob(18, 28, 4.5, 5.5);
+		tone(0.05);
+		s.beginPath();
+		s.ellipse(18, 25.5, 5, 3.2, 0, Math.PI, 2 * Math.PI);
+		s.fill();
+		tone(0.15);
+		s.beginPath();
+		s.moveTo(20, 50);
+		s.lineTo(22, 38);
+		s.lineTo(32, 38);
+		s.lineTo(34, 50);
+		s.fill();
+		tone(0.2);
+		for (let x = 3; x < 96; x += 8) blob(x, 61, 3.5, 4);
+		return [
+			{ text: 'Every panel should', x: 66, y: 12, size: 4.2 },
+			{ text: 'have a way back', x: 66, y: 20, size: 4.2 },
+			{ text: 'to a person.', x: 66, y: 28, size: 4.2 },
+		];
+	},
+};
+
+function drawPhoto(canvas, ink) {
+	const small = document.createElement('canvas');
+	small.width = 96;
+	small.height = 64;
+	const s = small.getContext('2d');
+	const grey = (value) => `rgb(${Math.round(value * 255)} ${Math.round(value * 255)} ${Math.round(value * 255)})`;
+	const tone = (value) => (s.fillStyle = s.strokeStyle = grey(value));
+	const blob = (x, y, rx, ry, turn = 0) => {
+		s.beginPath();
+		s.ellipse(x, y, rx, ry, turn, 0, Math.PI * 2);
+		s.fill();
+	};
+	const box = (x, y, width, height) => s.fillRect(x, y, width, height);
+	const shade = (top, bottom) => {
+		const fade = s.createLinearGradient(0, 0, 0, small.height);
+		fade.addColorStop(0, grey(top));
+		fade.addColorStop(1, grey(bottom));
+		s.fillStyle = fade;
+	};
+	const words = PHOTOS[canvas.dataset.photo]({ s, tone, blob, box, shade }) ?? [];
+	const { data } = s.getImageData(0, 0, small.width, small.height);
+	const c = canvas.getContext('2d');
+	const cell = canvas.width / small.width;
+	c.clearRect(0, 0, canvas.width, canvas.height);
+	c.fillStyle = ink;
+	for (let y = 0; y < small.height; y++) {
+		for (let x = 0; x < small.width; x++) {
+			if ((data[(y * small.width + x) * 4] / 255) * 16 > BAYER[(y % 4) * 4 + (x % 4)] + 0.5) c.fillRect(x * cell, y * cell, cell, cell);
+		}
+	}
+	c.globalCompositeOperation = 'destination-out';
+	c.textAlign = 'center';
+	c.textBaseline = 'middle';
+	for (const { text, x, y, size } of words) {
+		c.font = `bold ${size * cell}px ui-monospace, Menlo, Consolas, monospace`;
+		c.fillText(text, x * cell, y * cell);
+	}
+	c.globalCompositeOperation = 'source-over';
+}
+
 export function initLaptop(os) {
 	const screens = Object.fromEntries([...os.querySelectorAll('[data-screen-name]')].map((section) => [section.dataset.screenName, section]));
 
@@ -85,6 +323,7 @@ export function initLaptop(os) {
 		os.dataset.screen = name;
 		if (name === 'home') countUnread();
 		if (name === 'messages') listMessages(open);
+		if (name === 'photos') for (const photo of screens.photos.querySelectorAll('.os-photo')) drawPhoto(photo, ink);
 		if (name !== 'snake') pause();
 		if (!quiet) focus();
 	}
