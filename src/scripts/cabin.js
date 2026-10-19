@@ -281,6 +281,8 @@ export async function startCabin(stage, ui, laptop) {
 	async function showShip(at) {
 		const picture = await new TextureLoader().loadAsync('/scene/ship.webp');
 		picture.colorSpace = SRGBColorSpace;
+		// The card's texture coordinates come from glTF, which doesn't flip images.
+		picture.flipY = false;
 		ship.material = new MeshBasicMaterial({ map: picture, transparent: true, depthWrite: false, toneMapped: false });
 		ship.position.copy(at);
 		ship.visible = true;
