@@ -12,6 +12,7 @@
 import {
 	AdditiveBlending,
 	Box3,
+	BufferAttribute,
 	BufferGeometry,
 	CanvasTexture,
 	Color,
@@ -86,6 +87,10 @@ const SHIP = {
 	burn: { arriving: 0.55, parked: 0.12, sinking: 0, climbing: 1 },
 	puffs: [1.2, 2.8],
 };
+// Jet trails: glowing exhaust left behind in space, as points that drift
+// back from the nozzles at drift metres a second, and fade over seconds.
+// rate is how many a second at each stage; none while it sits or sinks.
+const TRAIL = { count: 700, seconds: 2.6, drift: 1.4, size: 0.6, rate: { arriving: 25, climbing: 110 } };
 
 // Looking around: the camera circles a point on the desk, and these limits
 // keep it inside the cabin, below the ceiling and above the desk. Zoom is far
@@ -292,19 +297,12 @@ export async function startCabin(stage, ui, laptop) {
 	let climbWaiting = false;
 
 	// Its engines: a plume behind each nozzle, and puffs from its attitude
-	// thrusters. Places are on the ship's card, from -0.5 to 0.5 across and
-	// down ship.webp; sizes are in metres. Plumes reach length metres at
-	// full burn, and flicker.
+	// thrusters. Where they are on the ship's card comes from
+	// scene/cabin.py: from -0.5 to 0.5 across and down ship.webp. Plumes
+	// reach seven nozzle radii at full burn, and flicker.
 	const cardSize = ship.scale.clone();
-	const NOZZLES = [
-		{ x: 0.403, z: 0.032, height: 0.24, length: 1.6 },
-		{ x: 0.453, z: 0.294, height: 0.2, length: 1.4 },
-	];
-	const THRUSTERS = [
-		{ x: -0.47, z: 0.08 },
-		{ x: 0.3, z: -0.44 },
-		{ x: 0.05, z: 0.46 },
-	];
+	const NOZZLES = cabinData.ship.nozzles.map(({ x, z, radius }) => ({ x, z, height: radius * 1.8, length: radius * 7 }));
+	const THRUSTERS = cabinData.ship.thrusters;
 	const plumeTexture = (() => {
 		const picture = document.createElement('canvas');
 		picture.width = 256;
@@ -350,6 +348,84 @@ export async function startCabin(stage, ui, laptop) {
 		ship.add(puff);
 		return puff;
 	});
+	// Its navigation lights: red and green glowing steadily, breathing a
+	// little; the white strobe flashing twice every 1.6 seconds.
+	const LIGHTS = { red: 'rgb(255 70 50', green: 'rgb(80 255 120', white: 'rgb(255 255 255' };
+	const lights = cabinData.ship.lights.map(({ x, z, colour }) => {
+		const glow = new Mesh(flat, glowing(spot([[0, `${LIGHTS[colour]} / 1)`], [0.3, `${LIGHTS[colour]} / 0.45)`], [1, `${LIGHTS[colour]} / 0)`]])));
+		glow.position.set(x, 0.004, z);
+		glow.scale.set(0.35 / cardSize.x, 1, 0.35 / cardSize.z);
+		glow.renderOrder = 2;
+		glow.userData.colour = colour;
+		ship.add(glow);
+		return glow;
+	});
+	function blinkLights(now) {
+		for (const light of lights) {
+			const strobe = now % 1.6;
+			light.material.opacity =
+				light.userData.colour === 'white' ? (reduceMotion.matches || strobe < 0.07 || (strobe > 0.2 && strobe < 0.27) ? 1 : 0) : reduceMotion.matches ? 0.85 : 0.75 + 0.25 * Math.sin(now * 2);
+		}
+	}
+
+	// The jet trails, in space rather than on the ship, so they're left behind
+	// as it moves: a ring of points reused oldest first.
+	const trailPositions = new Float32Array(TRAIL.count * 3);
+	const trailColours = new Float32Array(TRAIL.count * 3);
+	const trailDrift = Array.from({ length: TRAIL.count }, () => new Vector3());
+	const trailAge = new Float32Array(TRAIL.count).fill(Infinity);
+	const trailGeometry = new BufferGeometry();
+	// Its own arrays, not copies, so writing to them moves the points.
+	trailGeometry.setAttribute('position', new BufferAttribute(trailPositions, 3));
+	trailGeometry.setAttribute('color', new BufferAttribute(trailColours, 3));
+	const trail = new Points(
+		trailGeometry,
+		new PointsMaterial({
+			size: TRAIL.size,
+			map: spot([
+				[0, 'rgb(255 255 255 / 1)'],
+				[1, 'rgb(255 255 255 / 0)'],
+			]),
+			vertexColors: true,
+			transparent: true,
+			blending: AdditiveBlending,
+			depthWrite: false,
+			toneMapped: false,
+		}),
+	);
+	trail.frustumCulled = false;
+	scene.add(trail);
+	let trailNext = 0;
+	let trailOwed = 0;
+	const nozzleAt = new Vector3();
+	const behind = new Vector3();
+	function streamTrail(seconds) {
+		const rate = ship.visible && !reduceMotion.matches ? TRAIL.rate[engines] ?? 0 : 0;
+		trailOwed += rate * seconds;
+		behind.set(1, 0, 0).applyQuaternion(ship.quaternion).normalize();
+		for (; trailOwed >= 1; trailOwed -= 1) {
+			const nozzle = NOZZLES[Math.floor(Math.random() * NOZZLES.length)];
+			ship.localToWorld(nozzleAt.set(nozzle.x, 0, nozzle.z)).toArray(trailPositions, trailNext * 3);
+			trailDrift[trailNext].copy(behind).multiplyScalar(TRAIL.drift * (0.6 + Math.random() * 0.8)).add(new Vector3(between(-0.15, 0.15), between(-0.15, 0.15), between(-0.15, 0.15)));
+			trailAge[trailNext] = 0;
+			trailNext = (trailNext + 1) % TRAIL.count;
+		}
+		for (let i = 0; i < TRAIL.count; i++) {
+			if (trailAge[i] > TRAIL.seconds) {
+				trailColours.fill(0, i * 3, i * 3 + 3);
+				continue;
+			}
+			trailAge[i] += seconds;
+			nozzleAt.fromArray(trailPositions, i * 3).addScaledVector(trailDrift[i], seconds).toArray(trailPositions, i * 3);
+			const left = Math.max(0, 1 - trailAge[i] / TRAIL.seconds) ** 2;
+			trailColours[i * 3] = left;
+			trailColours[i * 3 + 1] = left * (0.55 + 0.4 * left);
+			trailColours[i * 3 + 2] = left * (0.3 + 0.7 * left);
+		}
+		trailGeometry.attributes.position.needsUpdate = true;
+		trailGeometry.attributes.color.needsUpdate = true;
+	}
+
 	let engines = 'parked';
 	let burn = 0;
 	let nextPuff = 0;
@@ -357,6 +433,9 @@ export async function startCabin(stage, ui, laptop) {
 	function burnEngines(now) {
 		const seconds = Math.min(0.1, now - lastBurn);
 		lastBurn = now;
+		streamTrail(seconds);
+		if (!ship.visible) return;
+		blinkLights(now);
 		const target = SHIP.burn[engines];
 		burn = reduceMotion.matches ? target : burn + (target - burn) * (1 - Math.exp(-seconds * 1.5));
 		for (const plume of plumes) {
@@ -396,7 +475,7 @@ export async function startCabin(stage, ui, laptop) {
 		leg = { from: ship.position.clone(), to, start: performance.now() / 1000, seconds, ease, then };
 	}
 	function glideShip(now) {
-		if (ship.visible) burnEngines(now);
+		burnEngines(now);
 		if (climbWaiting && !usingLaptop && !terminalAway) {
 			climbWaiting = false;
 			engines = 'climbing';
