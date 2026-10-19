@@ -1,4 +1,4 @@
-# Deskspace
+# DeskSpace
 
 A puzzle, set in a small spaceship cabin parked at Saturn, and the whole site is that one page. You're the administrator of a ship registry, alone out here. Drag to look around, scroll or pinch to move closer, click things. The laptop is a locked registry terminal (messages, the registry, settings, Snake), the phone is a radio (on a stand, its screen showing what's playing), the guitar plays, and a light outside the window is trying to say something.
 
