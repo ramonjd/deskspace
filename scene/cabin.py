@@ -1061,7 +1061,7 @@ for c, keys in enumerate(columns):
 # ---------------------------------------------------------------- clutter
 
 # Everything below is placed with a fixed random seed, so every build makes
-# the same mess. All words here are rough drafts for Ramon to rewrite.
+# the same mess. All words here are rough drafts, to be rewritten.
 random.seed(7)
 caveat = font("caveat", "Caveat.ttf")
 marker = font("permanent-marker", "PermanentMarker-Regular.ttf")
