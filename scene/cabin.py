@@ -1256,6 +1256,35 @@ hub.name = "disc-hub"
 finish(hub, material("disc-hub", (0.6, 0.62, 0.65), rough=0.3))
 stencil("disc-loose-label", "BACKUP 09", (-2.45, 1.40, DESK_Z + 0.0095), (0, 0, 1), 0.045, marker_ink, typeface=marker, spin=12)
 
+# A stack of books under the lamp, spines turned to the chair. Each is two
+# boards and a spine round a block of pages. They have their own random, so
+# the rest of the clutter lands where it always has.
+book_ink = {"dark": material("book-ink-dark", (0.02, 0.02, 0.025), rough=0.6), "light": material("book-ink-light", (0.85, 0.8, 0.68), rough=0.6)}
+BOOKS = [
+	# title, (length, depth, thickness), cover colour, ink, lettering size
+	("Javascript for space sickness", (0.72, 0.5, 0.11), (0.8, 0.62, 0.08), "dark", 0.046),
+	("CSS2001: a spacing odyssey", (0.66, 0.46, 0.085), (0.42, 0.09, 0.05), "light", 0.042),
+	("Node.JS relativity", (0.6, 0.42, 0.075), (0.16, 0.36, 0.14), "light", 0.04),
+]
+shelf = random.Random(2001)
+stack_at = Vector((-3.35, 0.78, DESK_Z))
+for i, (title, (length, depth, thick), colour, ink, size) in enumerate(BOOKS):
+	turn = 22 + shelf.uniform(-5, 5)
+	facing = Matrix.Rotation(math.radians(turn), 3, "Z")
+	at = stack_at + Vector((shelf.uniform(-0.03, 0.03), shelf.uniform(-0.03, 0.03), thick / 2))
+	stack_at.z += thick
+	board = 0.012
+	cloth = material(f"book-cover-{i}", colour, rough=0.75, photo="Fabric061", photo_size=0.4, photo_bump=0.2, dirt=0.3)
+	for part, centre, dims, mat in (
+		("bottom", (0, board / 2, -thick / 2 + board / 2), (length, depth - board, board), cloth),
+		("top", (0, board / 2, thick / 2 - board / 2), (length, depth - board, board), cloth),
+		("spine", (0, -depth / 2 + board / 2, 0), (length, board, thick), cloth),
+		("pages", (0, 0, 0), (length - 0.024, depth - board - 0.012, thick - 2 * board), bpy.data.materials["pages"]),
+	):
+		box(f"book-{i}-{part}", at + facing @ Vector(centre), dims, mat, rotation=(0, 0, turn), bevel=0.004)
+	words = stencil(f"book-{i}-title", title, at + facing @ Vector((0, -depth / 2 - 0.0005, 0)), facing @ Vector((0, -1, 0)), size, book_ink[ink], typeface=anton)
+	assert words.dimensions.x < length - 0.06, f"{title!r} is too long for its spine"
+
 # Hand sanitiser.
 gel = material("sanitiser-gel", (0.55, 0.8, 0.85), rough=0.15, photo="Plastic013A", photo_size=0.4, prints=0.25)
 pump_white = material("sanitiser-pump", (1.2, 1.2, 1.2), rough=0.35, photo="Plastic013A", photo_size=0.4, dirt=0.2)
@@ -2548,7 +2577,7 @@ bpy.ops.object.mode_set(mode="OBJECT")
 # Small lettering grows instead, or its letters take colour from their
 # neighbours in the texture and break up when zoomed in on.
 island_scale = {"cream-panel": 0.45, "desk-mat": 0.45, "charcoal": 0.45, "rib": 0.45, "frame-paint": 0.75}
-island_scale |= {"stencil-cream": 4, "poster-venue": 4, "poster-small": 8}
+island_scale |= {"stencil-cream": 4, "poster-venue": 4, "poster-small": 8, "book-ink-dark": 4, "book-ink-light": 4}
 # The loose things pack into the same texture; their marker lettering grows too.
 loose_scale = {"marker-ink": 12, "disc-sticker": 3}
 assert set(island_scale) <= {mat.name for mat in cabin.data.materials}, "island_scale names a material the cabin doesn't have"
