@@ -67,6 +67,5 @@ Saturn's size and ring edges, and the moons' sizes and distances, come from NASA
 
 ## Still to do
 
-- Set `site` in `astro.config.mjs` to the real address, for the page's canonical and share links.
 - Rewrite the draft copy: the dialogs, the ship's log, the toasts, the post-it notes and the poster (both in `scene/cabin.py`) and the site description.
 - Add real music to the radio. It plays generated music for now.

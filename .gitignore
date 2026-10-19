@@ -23,6 +23,9 @@ pnpm-debug.log*
 # jetbrains setting folder
 .idea/
 
+# Spacefast CLI state for this project
+.spacefast/
+
 # Blender working files, rebuilt by scene/cabin.py
 scene/cabin.blend
 scene/*.png
