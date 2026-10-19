@@ -1601,6 +1601,18 @@ glass.scale = (*GLASS_SIZE, 1)
 glass_material, glass_export = overlay("glass", glass_path, strength=0.6)
 glass.data.materials.append(glass_material)
 
+# A speaker stuck to the glass in its lower left corner, on two suction cups,
+# that beeps along with the light outside (ui.js). Its cable runs down over
+# the frame, between the post-its and clear of the frame's bolt, to the desk.
+SPEAKER = Vector((-1.72, GLASS_Y - 0.045, WINDOW["z"] - 0.58))
+box("speaker-body", SPEAKER, (0.26, 0.06, 0.18), plug_black, bevel=0.02)
+cylinder("speaker-rim", SPEAKER + Vector((-0.03, -0.031, 0)), 0.072, 0.003, steel, rotation=(90, 0, 0))
+cylinder("speaker-grille", SPEAKER + Vector((-0.03, -0.033, 0)), 0.064, 0.003, material("speaker-grille", (0.09, 0.09, 0.1), rough=0.8), rotation=(90, 0, 0))
+sphere("speaker-led", SPEAKER + Vector((0.08, -0.031, 0.05)), 0.009, material("speaker-led", (0, 0, 0), emit=(1.0, 0.12, 0.05), strength=4), segments=12)
+for i, side in enumerate((-1, 1)):
+	cylinder(f"speaker-cup-{i}", SPEAKER + Vector((side * 0.15, 0.039, 0.03)), 0.035, 0.012, material("suction-cup", (0.25, 0.27, 0.28), rough=0.3), rotation=(90, 0, 0))
+cable("cable-speaker", [SPEAKER + Vector((0.08, 0, -0.09)), Vector((-1.67, 1.87, 2.05)), Vector((-1.78, 1.765, 2.02)), Vector((-1.9, 1.765, 1.92)), Vector((-1.92, 1.765, 1.78)), Vector((-1.93, 2.0, 1.4)), Vector((-1.95, 1.95, DESK_Z + 0.01))], 0.008, black_cable)
+
 # Haze under the ceiling: smoke and dust that's drifted up and caught the
 # light. Three soft sheets across the room at different depths, so it shifts
 # as the camera moves. Each is a picture painted here: drifting clouds,
@@ -2084,7 +2096,7 @@ PROPS = {
 	"phone": "phone",
 	"headphones": "headphones",
 	"guitar": "guitar",
-	"window": "window-frame",
+	"speaker": "speaker",
 	"plant": "plant",
 	"notebook": "notebook",
 	"morse": "morse",
@@ -2577,7 +2589,7 @@ bpy.ops.object.mode_set(mode="OBJECT")
 # Small lettering grows instead, or its letters take colour from their
 # neighbours in the texture and break up when zoomed in on.
 island_scale = {"cream-panel": 0.45, "desk-mat": 0.45, "charcoal": 0.45, "rib": 0.45, "frame-paint": 0.75}
-island_scale |= {"stencil-cream": 4, "poster-venue": 4, "poster-small": 8, "book-ink-dark": 4, "book-ink-light": 4}
+island_scale |= {"stencil-cream": 4, "poster-venue": 4, "poster-small": 8, "ink": 4, "book-ink-dark": 4, "book-ink-light": 4}
 # The loose things pack into the same texture; their marker lettering grows too.
 loose_scale = {"marker-ink": 12, "disc-sticker": 3}
 assert set(island_scale) <= {mat.name for mat in cabin.data.materials}, "island_scale names a material the cabin doesn't have"

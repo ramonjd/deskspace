@@ -114,10 +114,9 @@ export function initCabin(stage) {
 	}
 
 	// In the live scene these panels sit in a corner instead of blocking the
-	// view, so you can keep looking around, watch the light in the window
-	// while reading the Morse card, and see the phone's screen while the radio
-	// plays. Escape still closes them.
-	const SIDE_PANELS = new Set(['window', 'morse', 'phone', 'panel']);
+	// view, so you can keep looking around and see the phone's screen while
+	// the radio plays. Escape still closes them.
+	const SIDE_PANELS = new Set(['phone', 'panel']);
 
 	async function openDialog(prop, id) {
 		const dialog = document.getElementById(id);
@@ -142,6 +141,7 @@ export function initCabin(stage) {
 	];
 	let sips = 0;
 	let headphonesOn = false;
+	const beacon = document.querySelector('.beacon[data-signal]');
 
 	const actions = {
 		// A line of its own, from the hotspot's data-say.
@@ -159,6 +159,32 @@ export function initCabin(stage) {
 		discs(hotspot) {
 			say(gravityOn ? hotspot.dataset.say : hotspot.dataset.floating);
 		},
+		// The speaker on the glass beeps along with the light outside: its dots
+		// and dashes, for anyone who can't watch it blink. With reduced motion
+		// the light stays still, so the speaker shows them too.
+		speaker() {
+			const { ctx, effects } = withSound();
+			const steps = JSON.parse(beacon.dataset.signal);
+			const unit = 0.12;
+			let when = ctx.currentTime + 0.1;
+			for (const [on, length] of steps) {
+				if (on) {
+					const tone = ctx.createOscillator();
+					tone.frequency.value = 620;
+					const level = ctx.createGain();
+					level.gain.setValueAtTime(0, when);
+					level.gain.linearRampToValueAtTime(0.25, when + 0.005);
+					level.gain.setValueAtTime(0.25, when + length * unit - 0.005);
+					level.gain.linearRampToValueAtTime(0, when + length * unit);
+					tone.connect(level);
+					level.connect(effects);
+					tone.start(when);
+					tone.stop(when + length * unit + 0.01);
+				}
+				when += length * unit;
+			}
+			if (matchMedia('(prefers-reduced-motion: reduce)').matches) say(`Recorded the light, in case it stops: ${beacon.dataset.recording}`);
+		},
 		headphones() {
 			setHeadphones(!headphonesOn);
 			if (headphonesOn && !radio.playing) startRadio();
@@ -173,6 +199,8 @@ export function initCabin(stage) {
 		if (prop === 'gravity') return window.cabin?.toggleGravity();
 		// In the live scene, the camera goes up to the laptop's own screen.
 		if (prop === 'laptop' && window.cabin) return window.cabin.useLaptop();
+		// And straight up to the Morse card, to read it on the wall.
+		if (prop === 'morse' && window.cabin) return window.cabin.readCard();
 		const hotspot = document.querySelector(`.hotspot[data-prop="${prop}"]`);
 		if (!hotspot) return;
 		const { dialog, action } = hotspot.dataset;
@@ -657,35 +685,6 @@ export function initCabin(stage) {
 		}
 	});
 	if (progress.has('panel')) showSynced();
-
-	// ------------------------------------------------------------ the light in the window
-
-	const windowDialog = document.getElementById('window-dialog');
-
-	// The same pattern as the light, as beeps: dots and dashes for anyone who
-	// can't watch it blink.
-	windowDialog.querySelector('.replay').addEventListener('click', (event) => {
-		const { ctx, effects } = withSound();
-		const steps = JSON.parse(event.currentTarget.dataset.signal);
-		const unit = 0.12;
-		let when = ctx.currentTime + 0.1;
-		for (const [on, length] of steps) {
-			if (on) {
-				const tone = ctx.createOscillator();
-				tone.frequency.value = 620;
-				const level = ctx.createGain();
-				level.gain.setValueAtTime(0, when);
-				level.gain.linearRampToValueAtTime(0.25, when + 0.005);
-				level.gain.setValueAtTime(0.25, when + length * unit - 0.005);
-				level.gain.linearRampToValueAtTime(0, when + length * unit);
-				tone.connect(level);
-				level.connect(effects);
-				tone.start(when);
-				tone.stop(when + length * unit + 0.01);
-			}
-			when += length * unit;
-		}
-	});
 
 	// ------------------------------------------------------------ calling home
 

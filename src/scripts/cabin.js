@@ -54,23 +54,16 @@ const TERMINAL = { width: 1024, height: 640 };
 
 // Where the camera goes when a prop is clicked: distance is how close it gets
 // before the dialog opens, and zoom how far scrolling or pinching can zoom in
-// there, beside a side panel. The window is different. The camera goes straight
-// up to the glass and stays free to look around space, within its own limits,
-// until the window's panel is closed.
-// The laptop is different again: the camera goes square on to its screen,
-// close enough for the screen to fill this much of the view.
+// there, beside a side panel. The laptop and the Morse card are different:
+// the camera goes square on to the screen or straight up to the card, close
+// enough for it to fill this much of the view, and stays until Escape or
+// Step back.
 const VIEWS = {
 	laptop: { screen: true, fill: 0.86 },
 	panel: { distance: 1.2, zoom: 3 },
 	guitar: { distance: 2.6 },
 	phone: { distance: 1.3, zoom: 3 },
-	morse: { distance: 1.3, zoom: 3 },
-	window: {
-		distance: 1.4,
-		straight: true,
-		zoom: 4,
-		look: { azimuth: 0.75, minPolar: 1.15, maxPolar: 2.0 },
-	},
+	morse: { straight: true, fill: 0.92, zoom: 3 },
 };
 const FLIGHT_SECONDS = 0.8;
 // The passing ship: seconds to glide in and stop, to sink toward Saturn once
@@ -709,7 +702,7 @@ export async function startCabin(stage, ui, laptop) {
 	scene.add(beacon);
 
 	// The same Morse pattern as the HTML light: steps of [on, units].
-	const steps = JSON.parse(document.querySelector('.replay').dataset.signal);
+	const steps = JSON.parse(document.querySelector('.beacon[data-signal]').dataset.signal);
 	let blinkTimer;
 	function blink(index = 0) {
 		clearTimeout(blinkTimer);
@@ -1063,13 +1056,12 @@ export async function startCabin(stage, ui, laptop) {
 	}
 
 	// What thrown things bounce off: the inside of the room and the desk, from
-	// the scene's data, and the picking boxes of the props that stay put
-	// (except the window's, which stands well out from the glass).
+	// the scene's data, and the picking boxes of the props that stay put.
 	gltf.scene.updateMatrixWorld(true);
 	const room = new Box3().setFromArray(cabinData.bounds.room.flat());
 	const fixed = [
 		new Box3().setFromArray(cabinData.bounds.desk.flat()),
-		...hits.filter((hit) => hit.parent === gltf.scene && hit.userData.prop !== 'window').map((hit) => new Box3().setFromObject(hit)),
+		...hits.filter((hit) => hit.parent === gltf.scene).map((hit) => new Box3().setFromObject(hit)),
 	];
 	// Each thing bounces as a ball: half its thinnest side, or a fifth of its
 	// length if that's more, so a pen doesn't go halfway into a wall.
@@ -1434,7 +1426,7 @@ export async function startCabin(stage, ui, laptop) {
 	canvas.addEventListener('pointerup', (event) => {
 		if (!press || Math.hypot(event.clientX - press.x, event.clientY - press.y) > CLICK_SLOP) return;
 		press = null;
-		// At the window, clicks are for looking, not for other props.
+		// Up close to something, clicks don't pick other props.
 		if (saved) return;
 		const picked = pick(event);
 		if (picked.prop === 'gravity') throwLever();
@@ -1569,7 +1561,12 @@ export async function startCabin(stage, ui, laptop) {
 			// Square on to the laptop's screen, straight on for the window;
 			// otherwise from wherever the camera is now.
 			const direction = view.screen ? screenNormal.clone() : view.straight ? new Vector3(0, 0, 1) : camera.position.clone().sub(target).normalize();
-			const distance = view.screen ? screenDistance(view.fill) : view.distance;
+			const card = view.fill && !view.screen && new Box3().setFromObject(scene.getObjectByName(`hit-${prop}`));
+			const distance = view.screen
+				? fitDistance(screenCentre, screenNormal, corners, view.fill)
+				: card
+					? fitDistance(target, direction, [card.min, card.max], view.fill)
+					: view.distance;
 			saved = { position: camera.position.clone(), target: controls.target.clone() };
 			controls.enabled = false;
 			label.classList.remove('shown');
@@ -1608,6 +1605,7 @@ export async function startCabin(stage, ui, laptop) {
 			return flight;
 		},
 		useLaptop,
+		readCard,
 		toggleGravity() {
 			throwLever();
 		},
@@ -1709,20 +1707,20 @@ export async function startCabin(stage, ui, laptop) {
 
 	// ------------------------------------------------------------ using the laptop
 
-	// How far from the screen, square on, for it to fill that much of the view,
-	// whatever the window's shape: measured with a copy of the camera.
+	// How far from a flat thing, square on, for it to fill that much of the
+	// view, whatever the window's shape: measured with a copy of the camera.
 	const probe = camera.clone();
-	function screenDistance(fill) {
+	function fitDistance(centre, normal, points, fill) {
 		// As the view will be on arrival, with the plain lens.
 		probe.copy(camera);
 		probe.zoom = 1;
 		probe.setViewOffset(frame.fullWidth, frame.fullHeight, frame.left, frame.top, frame.width, frame.height);
 		probe.updateProjectionMatrix();
-		probe.position.copy(screenCentre).add(screenNormal);
-		probe.lookAt(screenCentre);
+		probe.position.copy(centre).add(normal);
+		probe.lookAt(centre);
 		probe.updateMatrixWorld();
 		let reach = 0;
-		for (const point of corners) {
+		for (const point of points) {
 			const seen = point.clone().project(probe);
 			reach = Math.max(reach, Math.abs(seen.x), Math.abs(seen.y));
 		}
@@ -1731,7 +1729,7 @@ export async function startCabin(stage, ui, laptop) {
 
 	// Up at the screen, the terminal takes the pointer and keyboard (see the
 	// stage's [data-laptop] styles); Escape or Step back leaves.
-	const back = stage.querySelector('.laptop-back');
+	const back = stage.querySelector('.step-back');
 	const laptopDialog = document.getElementById('laptop-dialog');
 	const narrow = matchMedia('(max-width: 700px)');
 	let usingLaptop = false;
@@ -1770,6 +1768,25 @@ export async function startCabin(stage, ui, laptop) {
 	}
 	back.addEventListener('click', leaveLaptop);
 	document.addEventListener('keydown', (event) => event.key === 'Escape' && leaveLaptop());
+
+	// ------------------------------------------------------------ reading the Morse card
+
+	// Up at the card, scrolling or pinching zooms in on it; Escape or Step
+	// back leaves.
+	let readingCard = false;
+	async function readCard() {
+		if (readingCard || !(await api.flyTo('morse'))) return;
+		readingCard = true;
+		stage.dataset.card = '';
+	}
+	function leaveCard() {
+		if (!readingCard) return;
+		readingCard = false;
+		delete stage.dataset.card;
+		api.flyHome();
+	}
+	back.addEventListener('click', leaveCard);
+	document.addEventListener('keydown', (event) => event.key === 'Escape' && leaveCard());
 
 	// ------------------------------------------------------------ start
 
