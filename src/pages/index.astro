@@ -527,6 +527,12 @@ const signalStyle = `<style>
 				box-shadow: 0 30px 80px rgb(0 0 0 / 0.5);
 				font-family: var(--font-atkinson), system-ui, sans-serif;
 			}
+			/* The header stays put and the body scrolls within whatever height the
+			   dialog is allowed, as a modal or as a side panel. */
+			dialog.panel[open] {
+				display: flex;
+				flex-direction: column;
+			}
 			dialog.panel::backdrop {
 				background: rgb(10 8 6 / 0.35);
 			}
@@ -560,9 +566,9 @@ const signalStyle = `<style>
 				font-size: 1.25rem;
 			}
 			.panel .body {
+				min-height: 0;
 				padding: 0 1.25rem 1.25rem;
 				overflow: auto;
-				max-height: calc(86vh - 4rem);
 			}
 			.panel .body > :first-child {
 				margin-top: 0.25rem;
