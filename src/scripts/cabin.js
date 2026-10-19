@@ -17,7 +17,6 @@ import {
 	CanvasTexture,
 	Color,
 	EquirectangularReflectionMapping,
-	Float32BufferAttribute,
 	Matrix4,
 	Mesh,
 	MeshBasicMaterial,
@@ -838,8 +837,8 @@ export async function startCabin(stage, ui, laptop) {
 	}
 	for (let i = 0; i < motes; i++) placeMote(i);
 	const dustGeometry = new BufferGeometry();
-	dustGeometry.setAttribute('position', new Float32BufferAttribute(motePositions, 3));
-	dustGeometry.setAttribute('color', new Float32BufferAttribute(moteColours, 3));
+	dustGeometry.setAttribute('position', new BufferAttribute(motePositions, 3));
+	dustGeometry.setAttribute('color', new BufferAttribute(moteColours, 3));
 	const dust = new Points(
 		dustGeometry,
 		new PointsMaterial({
