@@ -1,0 +1,1066 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Laptop from '../components/Laptop.astro';
+import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
+import cabin from '../data/cabin.json';
+import MORSE from '../data/morse.json';
+
+// Where things sit in the still, in percent of the 1920x1080 frame (from scene/cabin.py).
+const { hotspots } = cabin;
+const place = ({ left, top, width, height }) =>
+	`left:${left}%;top:${top}%;width:${width}%;height:${height}%`;
+// Labels near the left or right edge of the still hang inwards, not off the edge.
+const edge = ({ left, width }) => (left + width / 2 < 20 ? 'start' : left + width / 2 > 80 ? 'end' : null);
+
+// Each prop either opens a dialog or does something small.
+// Labels are rough drafts.
+const props = [
+	{ id: 'laptop', label: 'Laptop', dialog: 'laptop-dialog' },
+	{ id: 'panel', label: 'Control panel', dialog: 'panel-dialog' },
+	{ id: 'window', label: 'The window: where we are', dialog: 'window-dialog', below: true },
+	{ id: 'headphones', label: 'Headphones', action: 'headphones', below: true },
+	{ id: 'guitar', label: 'Guitar: play it', dialog: 'guitar-dialog', below: true },
+	{ id: 'phone', label: 'Phone: radio', dialog: 'radio-dialog' },
+	{ id: 'mug', label: 'Coffee', action: 'sip' },
+	{ id: 'plant', label: 'Plant', action: 'plant' },
+	{ id: 'notebook', label: 'Notebook', say: 'Shift notes. Call signs, hull numbers, and a lot of doodles of Saturn.' },
+	{ id: 'morse', label: 'Morse card', dialog: 'morse-dialog' },
+	{ id: 'poster', label: 'Poster', say: "Rings N' Roses, live at the Cassini Division. You had to be there." },
+	{
+		id: 'discs',
+		label: 'Backup discs',
+		action: 'discs',
+		say: 'BACKUP 2009, PHOTOS 2011 and DO NOT LOSE, at the bottom of the pile.',
+		// With the gravity off (ui.js): DO NOT LOSE turns over (cabin.js).
+		floating: "DO NOT LOSE drifts out of the pile and turns over. There's a sticker underneath: 'backup password: flexbox'.",
+	},
+	{ id: 'sanitiser', label: 'Hand sanitiser', say: 'Kills 99.9% of germs. Out here there were none to begin with.' },
+	{ id: 'pens', label: 'Pens', say: 'Five pens, a pencil and a marker. Two of the pens work.' },
+	{ id: 'notes', label: 'Post-it notes', say: 'Reminders. Most of them overdue.' },
+];
+
+// The light outside the window blinks the laptop's password in Morse, with
+// standard timing: dot 1 unit, dash 3, 1 between symbols, 3 between letters,
+// 7 after the word. MORSE is the ITU table, shared with the card on the wall
+// (scene/cabin.py). src/scripts/laptop.js keeps the same word, as a hash.
+const SIGNAL = 'PANTS';
+// JavaScript lists digit keys before letters; the chart wants A to Z, then 0 to 9.
+const morseChart = Object.entries(MORSE).sort(
+	([a], [b]) => Number(/\d/.test(a)) - Number(/\d/.test(b)) || a.localeCompare(b),
+);
+const steps = [];
+[...SIGNAL].forEach((letter, i) => {
+	[...MORSE[letter]].forEach((symbol, j) => {
+		if (j) steps.push([false, 1]);
+		steps.push([true, symbol === '.' ? 1 : 3]);
+	});
+	steps.push([false, i < SIGNAL.length - 1 ? 3 : 7]);
+});
+const UNIT = 0.3;
+const units = steps.reduce((sum, [, length]) => sum + length, 0);
+let elapsed = 0;
+const frames = steps.map(([on, length]) => {
+	const frame = `${((elapsed / units) * 100).toFixed(3)}% { opacity: ${on ? 1 : 0.12}; }`;
+	elapsed += length;
+	return frame;
+});
+const signalStyle = `<style>
+	@keyframes signal { ${frames.join(' ')} 100% { opacity: 0.12; } }
+	.beacon { animation: signal ${(units * UNIT).toFixed(1)}s step-end infinite; }
+</style>`;
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+		<script is:inline>
+			document.documentElement.classList.add('js');
+		</script>
+		<Fragment set:html={signalStyle} />
+		<style>
+			/* The front page is the cabin and nothing else. */
+			:global(body) {
+				overflow: hidden;
+				background: #1b1714;
+			}
+			.stage {
+				position: fixed;
+				inset: 0;
+				overflow: hidden;
+				container-type: size;
+				background: #1b1714;
+			}
+			/* Cropped to fit any screen shape, keeping the laptop in view.
+			   .layer and cabin.js crop the same way. */
+			.cabin {
+				display: block;
+				width: 100%;
+				height: 100%;
+				object-fit: cover;
+				object-position: 45% 60%;
+				border-radius: 0;
+			}
+			.live {
+				position: absolute;
+				inset: 0;
+				width: 100%;
+				height: 100%;
+				opacity: 0;
+				transition: opacity 0.4s ease-out;
+			}
+			.live.ready {
+				opacity: 1;
+			}
+
+			/* A box the size and position of the still as object-fit: cover
+			   draws it, so percentages from the still line up with the picture. */
+			.layer {
+				--w: max(100cqw, 177.778cqh);
+				--h: max(100cqh, 56.25cqw);
+				position: absolute;
+				width: var(--w);
+				height: var(--h);
+				left: calc((100cqw - var(--w)) * 0.45);
+				top: calc((100cqh - var(--h)) * 0.6);
+				transition: opacity 0.25s;
+			}
+			/* Darker towards the edges, like an old lens. */
+			.vignette,
+			.dim {
+				position: absolute;
+				inset: 0;
+				pointer-events: none;
+			}
+			.vignette {
+				background: radial-gradient(ellipse 75% 80% at 48% 52%, transparent 55%, rgb(12 7 4 / 0.5) 100%);
+			}
+			/* The room darkening round the bare bulb when cabin.js makes it
+			   flicker. At most 9% darker, so it stays well under the 10%
+			   luminance change that counts as a flash. */
+			.dim {
+				opacity: 0;
+				background: radial-gradient(circle at var(--x, 20%) var(--y, 13%), rgb(0 0 0 / 0.09), rgb(0 0 0 / 0.06) 35%, transparent 80%);
+			}
+
+			/* The live scene does its own hotspots and laptop screen in 3D. */
+			.stage[data-live] .layer {
+				display: none;
+			}
+
+			.hotspot {
+				display: none;
+				position: absolute;
+				padding: 0;
+				border: 0;
+				border-radius: 12px;
+				background: transparent;
+				cursor: pointer;
+			}
+			:global(.js) .hotspot {
+				display: block;
+			}
+			.hotspot:hover,
+			.hotspot:focus-visible {
+				outline: 2px solid rgb(255 196 130 / 0.9);
+				outline-offset: 3px;
+				background: rgb(255 210 160 / 0.08);
+			}
+			.hotspot::after {
+				content: attr(data-label);
+				position: absolute;
+				left: 50%;
+				top: -0.5em;
+				transform: translate(-50%, -100%);
+				padding: 0.35em 0.65em;
+				border-radius: 6px;
+				background: rgb(22 18 14 / 0.88);
+				color: #fff4e6;
+				font: 600 14px/1.2 system-ui, sans-serif;
+				white-space: nowrap;
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity 0.15s;
+			}
+			.hotspot.below::after {
+				top: auto;
+				bottom: -0.5em;
+				transform: translate(-50%, 100%);
+			}
+			.hotspot.start::after {
+				left: 0;
+				transform: translate(0, -100%);
+			}
+			.hotspot.end::after {
+				left: auto;
+				right: 0;
+				transform: translate(0, -100%);
+			}
+			.hotspot.below.start::after,
+			.hotspot.below.end::after {
+				transform: translate(0, 100%);
+			}
+			.hotspot:hover::after,
+			.hotspot:focus-visible::after {
+				opacity: 1;
+			}
+			/* No hover on touch screens, so mark what can be tapped. */
+			@media (hover: none) {
+				.hotspot::before {
+					content: '';
+					position: absolute;
+					left: 50%;
+					top: 50%;
+					width: 10px;
+					height: 10px;
+					margin: -5px;
+					border-radius: 50%;
+					background: rgb(255 196 130 / 0.85);
+					box-shadow: 0 0 0 4px rgb(255 196 130 / 0.25);
+				}
+			}
+
+			/* The laptop's terminal, behind the live canvas, showing through the
+			   3D screen (see cabin.js). It fades in with the canvas, and takes the
+			   pointer only while you're using the laptop. */
+			.stage :global(.os-layer) {
+				position: absolute;
+				pointer-events: none;
+				opacity: 0;
+				transition: opacity 0.4s ease-out;
+			}
+			.stage :global(.os-layer.ready) {
+				opacity: 1;
+			}
+			.stage[data-laptop] .live {
+				pointer-events: none;
+			}
+			.stage[data-laptop] :global(.os-layer .os) {
+				pointer-events: auto;
+			}
+			/* Using the laptop in the live scene: its screen takes the pointer
+			   (see cabin.js), and this button steps back. */
+			.laptop-back {
+				position: absolute;
+				top: 16px;
+				left: 16px;
+				z-index: 6;
+				display: none;
+			}
+			.stage[data-laptop] .laptop-back {
+				display: inline-flex;
+			}
+			/* In the live scene, zoom buttons (see cabin.js). */
+			.zoom {
+				position: absolute;
+				top: 16px;
+				right: 16px;
+				z-index: 6;
+				display: none;
+				gap: 8px;
+			}
+			.stage[data-zooming] .zoom {
+				display: flex;
+			}
+			.zoom .pill {
+				display: inline-flex;
+				min-width: 2.6em;
+				justify-content: center;
+				font-size: 1.1rem;
+			}
+			/* Without the live scene, the laptop opens as a dialog. */
+			dialog.laptop {
+				width: min(94vw, 1024px);
+				padding: 0;
+				border: 0;
+				background: transparent;
+			}
+			dialog.laptop :global(.os) {
+				width: 100%;
+				height: auto;
+				aspect-ratio: 16 / 10;
+			}
+			/* On a phone it's taller than the screen's shape, and scrolls. */
+			@media (max-width: 700px) {
+				dialog.laptop :global(.os) {
+					aspect-ratio: auto;
+					height: min(84vh, 640px);
+					overflow: auto;
+				}
+			}
+			dialog.laptop .close {
+				position: absolute;
+				top: 0;
+				right: 0;
+				z-index: 1;
+			}
+
+			/* The light out past the rings. Its keyframes are generated above. */
+			.beacon {
+				position: absolute;
+				width: calc(var(--w) * 0.0035);
+				aspect-ratio: 1;
+				border-radius: 50%;
+				background: #ffe2b0;
+				box-shadow: 0 0 calc(var(--w) * 0.006) calc(var(--w) * 0.0012) rgb(255 200 130 / 0.85);
+				transform: translate(-50%, -50%);
+				pointer-events: none;
+			}
+			.beacon[hidden] {
+				display: none;
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.beacon {
+					animation: none;
+					opacity: 0.6;
+				}
+			}
+
+			.controls {
+				position: absolute;
+				right: 16px;
+				bottom: 16px;
+				left: 16px;
+				display: flex;
+				flex-wrap: wrap;
+				justify-content: flex-end;
+				gap: 8px;
+				pointer-events: none;
+			}
+			.pill {
+				display: none;
+				align-items: center;
+				gap: 0.5em;
+				padding: 0.55em 0.9em;
+				border: 1px solid rgb(255 244 230 / 0.25);
+				border-radius: 999px;
+				background: rgb(22 18 14 / 0.78);
+				color: #fff4e6;
+				font: 600 14px/1 system-ui, sans-serif;
+				cursor: pointer;
+				pointer-events: auto;
+			}
+			:global(.js) .sound {
+				display: inline-flex;
+			}
+			@container (max-width: 899px) {
+				.stage[data-plain] .dock {
+					display: inline-flex;
+				}
+			}
+			@media (hover: none) {
+				.stage[data-plain] .dock {
+					display: inline-flex;
+				}
+			}
+			.pill:focus-visible {
+				outline: 2px solid rgb(255 196 130 / 0.9);
+				outline-offset: 2px;
+			}
+			.toast {
+				position: absolute;
+				left: 50%;
+				top: 16px;
+				max-width: min(90%, 36em);
+				margin: 0;
+				padding: 0.6em 1em;
+				transform: translate(-50%, 8px);
+				border-radius: 10px;
+				background: rgb(22 18 14 / 0.88);
+				color: #fff4e6;
+				font: 500 15px/1.4 system-ui, sans-serif;
+				text-align: center;
+				opacity: 0;
+				pointer-events: none;
+				transition:
+					opacity 0.2s,
+					transform 0.2s;
+			}
+			.toast:global(.shown) {
+				opacity: 1;
+				transform: translate(-50%, 0);
+			}
+
+			/* The name of whatever is under the pointer in the live scene. */
+			.label {
+				position: absolute;
+				left: 0;
+				top: 0;
+				margin: 0;
+				padding: 0.35em 0.65em;
+				border-radius: 6px;
+				background: rgb(22 18 14 / 0.88);
+				color: #fff4e6;
+				font: 600 14px/1.2 system-ui, sans-serif;
+				white-space: nowrap;
+				pointer-events: none;
+				opacity: 0;
+				transition: opacity 0.12s;
+			}
+			.label:global(.shown) {
+				opacity: 1;
+			}
+			.hint {
+				position: absolute;
+				left: 50%;
+				bottom: 18px;
+				margin: 0;
+				padding: 0.55em 1em;
+				transform: translateX(-50%);
+				border-radius: 999px;
+				background: rgb(22 18 14 / 0.78);
+				color: #fff4e6;
+				font: 600 14px/1 system-ui, sans-serif;
+				white-space: nowrap;
+				pointer-events: none;
+				opacity: 0;
+				transition: opacity 0.6s;
+			}
+			.hint:global(.shown) {
+				opacity: 1;
+			}
+			/* On narrow screens, sit above the sound button rather than on it. */
+			@container (max-width: 600px) {
+				.hint {
+					bottom: 68px;
+				}
+			}
+
+			/* Off screen until something in it has keyboard focus. */
+			.skip {
+				position: fixed;
+				left: 16px;
+				top: 16px;
+				z-index: 10;
+				max-width: min(90vw, 22rem);
+				padding: 0.75rem 1rem;
+				transform: translateY(calc(-100% - 32px));
+				border-radius: 12px;
+				background: #17130f;
+				color: #efe4d4;
+				font: 500 15px/1.4 system-ui, sans-serif;
+				box-shadow: 0 20px 60px rgb(0 0 0 / 0.5);
+			}
+			.skip:focus-within {
+				transform: none;
+			}
+			/* Only the live scene can switch the gravity off. */
+			body:not(:has(.stage[data-live])) .skip .live-only {
+				display: none;
+			}
+			.skip p {
+				margin: 0.25em 0;
+				color: #ffb877;
+				font-size: 0.8em;
+				letter-spacing: 0.12em;
+				text-transform: uppercase;
+			}
+			.skip ul {
+				margin: 0 0 0.5em;
+				padding: 0;
+				list-style: none;
+			}
+			.skip button {
+				padding: 0.15em 0;
+				border: 0;
+				background: none;
+				color: inherit;
+				font: inherit;
+				cursor: pointer;
+			}
+			.skip button:focus-visible {
+				outline: 2px solid #ff9a4d;
+				outline-offset: 2px;
+			}
+		</style>
+		<style is:global>
+			/* Dialogs share the cabin's look: dark panels, warm text, an orange accent. */
+			dialog.panel {
+				width: min(92vw, 34rem);
+				max-height: 86vh;
+				padding: 0;
+				border: 0;
+				border-radius: 16px;
+				background: #17130f;
+				color: #efe4d4;
+				box-shadow: 0 30px 80px rgb(0 0 0 / 0.5);
+				font-family: var(--font-atkinson), system-ui, sans-serif;
+			}
+			dialog.panel::backdrop {
+				background: rgb(10 8 6 / 0.35);
+			}
+			/* On wide screens, keep the dialog off the thing it's about: the
+			   guitar and the phone are on the right, the light is in the
+			   window's top left. */
+			@media (min-width: 900px) {
+				dialog#guitar-dialog,
+				dialog#radio-dialog {
+					margin: auto auto auto 6vw;
+				}
+				dialog#window-dialog {
+					margin: auto 4vw auto auto;
+				}
+			}
+			/* In the live scene the window and Morse panels sit in opposite
+			   corners rather than as modals, so you can keep looking around (and
+			   watch the light while reading the card). */
+			dialog#morse-dialog:not(:modal) {
+				position: fixed;
+				inset: auto auto 16px 16px;
+				z-index: 5;
+				width: min(92vw, 24rem);
+				max-height: min(70vh, 40rem);
+				margin: 0;
+			}
+			dialog#radio-dialog:not(:modal) {
+				position: fixed;
+				inset: auto auto 16px 16px;
+				z-index: 5;
+				width: min(92vw, 22rem);
+				max-height: min(70vh, 40rem);
+				margin: 0;
+			}
+			dialog#window-dialog:not(:modal) {
+				position: fixed;
+				inset: auto 16px 16px auto;
+				z-index: 5;
+				width: min(92vw, 26rem);
+				max-height: min(70vh, 40rem);
+				margin: 0;
+			}
+			.panel header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 1rem 1.25rem 0.5rem;
+			}
+			.panel h2 {
+				margin: 0;
+				color: #fff4e6;
+				font-size: 1.25rem;
+			}
+			.panel .body {
+				padding: 0 1.25rem 1.25rem;
+				overflow: auto;
+				max-height: calc(86vh - 4rem);
+			}
+			.panel .body > :first-child {
+				margin-top: 0.25rem;
+			}
+			.panel a {
+				color: #ffb877;
+			}
+			.panel button,
+			.panel input {
+				font: inherit;
+			}
+			.panel .close {
+				padding: 0.3em 0.6em;
+				border: 0;
+				border-radius: 8px;
+				background: rgb(255 244 230 / 0.08);
+				color: inherit;
+				cursor: pointer;
+			}
+			.panel .chip {
+				padding: 0.45em 0.9em;
+				border: 1px solid rgb(255 244 230 / 0.2);
+				border-radius: 999px;
+				background: rgb(255 244 230 / 0.06);
+				color: inherit;
+				cursor: pointer;
+			}
+			.panel .chip[aria-pressed='true'] {
+				border-color: #ff9a4d;
+				background: rgb(255 154 77 / 0.2);
+			}
+			.panel button:focus-visible,
+			.panel input:focus-visible {
+				outline: 2px solid #ff9a4d;
+				outline-offset: 2px;
+			}
+			.panel .muted {
+				color: rgb(239 228 212 / 0.65);
+				font-size: 0.9em;
+			}
+			.panel h3 {
+				margin: 1.25em 0 0.4em;
+				color: #ffb877;
+				font-size: 0.85rem;
+				letter-spacing: 0.12em;
+				text-transform: uppercase;
+			}
+			.panel .log {
+				margin: 0;
+				padding-left: 1.1em;
+			}
+			.panel .log li {
+				margin: 0.35em 0;
+			}
+			.panel .log code {
+				color: #ffe2b0;
+				background: none;
+			}
+			.reduced-motion-only {
+				display: none;
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.reduced-motion-only {
+					display: list-item;
+				}
+			}
+
+			/* The control panel under the desk: four buttons to play back the
+			   pattern they flash, each with its own tone and place. */
+			.sync-pad {
+				display: grid;
+				grid-template-columns: repeat(2, 1fr);
+				gap: 0.6rem;
+				max-width: 15rem;
+				margin: 0.8rem 0;
+			}
+			.sync-button {
+				aspect-ratio: 1.6;
+				border: 2px solid rgb(0 0 0 / 0.5);
+				border-radius: 12px;
+				background: var(--colour);
+				filter: brightness(0.45) saturate(0.8);
+				cursor: pointer;
+				transition: filter 0.06s;
+			}
+			.sync-button.lit {
+				filter: brightness(1.15);
+			}
+			.sync-button:focus-visible {
+				outline: 3px solid #ffb877;
+				outline-offset: 2px;
+			}
+			.sync-status {
+				min-height: 1.4em;
+			}
+			dialog#panel-dialog:not(:modal) {
+				position: fixed;
+				inset: auto auto 16px 16px;
+				z-index: 5;
+				width: min(92vw, 20rem);
+				margin: 0;
+			}
+			/* The guitar's songbook, a dog-eared page. */
+			.songbook {
+				margin: 0.8rem 0;
+				padding: 0.6rem 0.8rem;
+				border-radius: 4px 14px 4px 4px;
+				background: #e9dfc6;
+				color: #2a2219;
+				font-family: 'Caveat', 'Bradley Hand', cursive;
+				font-size: 1.15rem;
+				line-height: 1.3;
+			}
+			.songbook p {
+				margin: 0;
+			}
+
+			/* The radio is a phone. */
+			dialog.radio {
+				width: min(88vw, 20rem);
+				border: 6px solid #050505;
+				border-radius: 32px;
+				background: linear-gradient(#17323a, #0d1a1f);
+			}
+			.radio .now {
+				margin: 0.5em 0 0;
+				color: #fff4e6;
+				font-size: 1.6rem;
+				font-weight: 700;
+			}
+			.radio .radio-controls {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.5em;
+			}
+			.radio .volume {
+				display: grid;
+				gap: 0.3em;
+				font-size: 0.9em;
+			}
+			.radio .volume input {
+				accent-color: #ff9a4d;
+			}
+
+			.guitar .strings {
+				display: grid;
+				margin: 0.5em 0 1em;
+				padding: 0.5em 0;
+				border-radius: 10px;
+				background: linear-gradient(90deg, #2a170c, #3b2213 60%, #2a170c);
+			}
+			.guitar .string {
+				display: flex;
+				align-items: center;
+				gap: 0.75em;
+				height: 2.4rem;
+				padding: 0 0.75em;
+				border: 0;
+				background: none;
+				color: #efe4d4;
+				cursor: pointer;
+				touch-action: none;
+			}
+			.guitar .string-name {
+				width: 1em;
+				font-family: ui-monospace, Menlo, monospace;
+				opacity: 0.7;
+			}
+			.guitar .string-line {
+				flex: 1;
+				height: var(--thick);
+				border-radius: 2px;
+				background: linear-gradient(#f4ead8, #b9a98d);
+				box-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
+			}
+			.guitar .string.ringing .string-line {
+				animation: ring 0.6s ease-out;
+			}
+			@keyframes ring {
+				0%,
+				100% {
+					transform: translateY(0);
+				}
+				10% {
+					transform: translateY(2px);
+				}
+				30% {
+					transform: translateY(-1.5px);
+				}
+				50% {
+					transform: translateY(1px);
+				}
+				70% {
+					transform: translateY(-0.5px);
+				}
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.guitar .string.ringing .string-line {
+					animation: none;
+					background: #ffd59e;
+				}
+			}
+			.guitar .chords {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.5em;
+			}
+			.panel .window-actions {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.5em;
+			}
+			.morse-table {
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: 0.15em 1em;
+				margin: 0.75em 0 0;
+				font-family: ui-monospace, Menlo, monospace;
+			}
+			.morse-table div {
+				display: flex;
+				gap: 0.6em;
+			}
+			.morse-table dt {
+				color: #ffb877;
+				font-weight: 700;
+			}
+			.morse-table dd {
+				margin: 0;
+				letter-spacing: 0.2em;
+				white-space: nowrap;
+			}
+		</style>
+	</head>
+	<body>
+		<h1 class="sr-only">{SITE_TITLE}</h1>
+		<!-- Hidden until it has keyboard focus: everything the scene offers, as plain links and buttons. -->
+		<nav class="skip" aria-label="Site">
+			<p>In the cabin</p>
+			<ul>
+				<li><button type="button" data-prop="laptop" data-dialog="laptop-dialog">Laptop</button></li>
+				<li><button type="button" data-prop="panel" data-dialog="panel-dialog">Control panel</button></li>
+				<li><button type="button" data-prop="phone" data-dialog="radio-dialog">Radio</button></li>
+				<li><button type="button" data-prop="guitar" data-dialog="guitar-dialog">Guitar</button></li>
+				<li><button type="button" data-prop="window" data-dialog="window-dialog">The window</button></li>
+				<li><button type="button" data-prop="headphones" data-action="headphones">Headphones</button></li>
+				<li><button type="button" data-prop="morse" data-dialog="morse-dialog">Morse card</button></li>
+				<li class="live-only"><button type="button" data-prop="gravity" aria-pressed="true">Gravity</button></li>
+			</ul>
+		</nav>
+		<div class="stage">
+			<img
+				class="cabin"
+				src="/cabin-still.webp"
+				width="1920"
+				height="1080"
+				fetchpriority="high"
+				alt="A small spaceship cabin. A laptop on the desk sits at its login screen. Through the window behind it, Saturn and its rings. Headphones hang on a hook, a guitar hangs on the wall, and a mug, a phone, a plant and a notebook sit on the desk."
+			/>
+			<canvas class="live" aria-hidden="true"></canvas>
+			<div class="layer">
+				<span class="beacon" style={`left:${hotspots.beacon.left}%;top:${hotspots.beacon.top}%`}></span>
+				{
+					props.map((prop) => (
+						<button
+							type="button"
+							class:list={['hotspot', edge(hotspots[prop.id]), { below: prop.below }]}
+							data-prop={prop.id}
+							data-dialog={prop.dialog}
+							data-action={prop.action ?? (prop.say ? 'say' : undefined)}
+							data-say={prop.say}
+							data-floating={prop.floating}
+							data-label={prop.label}
+							aria-label={prop.label}
+							style={place(hotspots[prop.id])}
+						/>
+					))
+				}
+			</div>
+			<div class="vignette" aria-hidden="true"></div>
+			<div class="dim" aria-hidden="true"></div>
+			<!-- Without the live scene, narrow screens crop most props out of view
+			     and touch screens can't hover, so they get buttons for the props. -->
+			<div class="controls">
+				<button type="button" class="pill dock" data-prop="phone" data-dialog="radio-dialog">Radio</button>
+				<button type="button" class="pill dock" data-prop="guitar" data-dialog="guitar-dialog">Guitar</button>
+				<button type="button" class="pill dock" data-prop="window" data-dialog="window-dialog">Window</button>
+				<button type="button" class="pill dock" data-prop="headphones" data-action="headphones">Headphones</button>
+				<button type="button" class="pill sound" aria-pressed="false">
+					<span aria-hidden="true">♪</span>
+					<span class="sound-label">Sound off</span>
+				</button>
+			</div>
+			<button type="button" class="pill laptop-back">‹ Step back (Esc)</button>
+			<div class="zoom" role="group" aria-label="Zoom">
+				<button type="button" class="pill" data-zoom="in" aria-label="Zoom in">+</button>
+				<button type="button" class="pill" data-zoom="out" aria-label="Zoom out">−</button>
+			</div>
+			<p class="label" aria-hidden="true"></p>
+			<p class="hint" aria-hidden="true">Drag to look around, scroll to zoom. Click things.</p>
+			<p class="toast" role="status" aria-live="polite"></p>
+		</div>
+
+		<!-- Copy in the dialogs is a rough draft for Ramon to rewrite. -->
+		<dialog class="laptop" id="laptop-dialog" aria-label="Laptop">
+			<form method="dialog"><button class="pill close">Close</button></form>
+			<Laptop />
+		</dialog>
+
+		<dialog class="panel" id="window-dialog" aria-labelledby="window-title">
+			<header>
+				<h2 id="window-title">Where we are</h2>
+				<form method="dialog"><button class="close">Close</button></form>
+			</header>
+			<div class="body">
+				<p>
+					Parked off Saturn. The numbers are NASA's: Saturn is 60,268 km from its centre to its cloud
+					tops at the equator, but only 54,364 km to the poles. It spins so fast it bulges.
+				</p>
+				<p>
+					The bright rings reach 136,780 km from the centre. The dark stripe across them is the
+					Cassini Division, a gap of nearly 5,000 km between the B and A rings.
+				</p>
+				<p>
+					Sunlight here is about 1% as strong as at home: 14.82 watts per square metre, against
+					1,361 at Earth. The small dots near the rings are moons. Saturn has 274 confirmed, and
+					the six biggest are out there at their real distances.
+				</p>
+				<h3>Ship's log</h3>
+				<ul class="log">
+					<li>Parked. The view is ridiculous.</li>
+					<li>The guitar stays in tune out here. I don't trust it.</li>
+					<li>
+						Registry wants a new password every shift, and I never remember them. Rigged the relay
+						beacon out past the rings, up and to the left, to remind me. Written in the stars.
+					</li>
+					<li class="reduced-motion-only">
+						Recorded the light, in case it stops: <code>{[...SIGNAL].map((letter) => MORSE[letter]).join(' ')}</code>
+					</li>
+				</ul>
+				<p class="window-actions">
+					<button
+						class="chip replay"
+						type="button"
+						data-signal={JSON.stringify(steps)}
+					>
+						Play the light as sound
+					</button>
+					<button class="chip" type="button" data-prop="morse" data-dialog="morse-dialog">Morse card</button>
+				</p>
+			</div>
+		</dialog>
+
+		<dialog class="panel morse" id="morse-dialog" aria-labelledby="morse-title">
+			<header>
+				<h2 id="morse-title">Morse code</h2>
+				<form method="dialog"><button class="close">Close</button></form>
+			</header>
+			<div class="body">
+				<p class="muted">
+					A dot is a short flash, a dash is three times as long. A short gap separates the dots and
+					dashes in a letter, a gap of three separates letters, and a gap of seven separates words.
+				</p>
+				<dl class="morse-table">
+					{
+						morseChart.map(([key, code]) => (
+							<div>
+								<dt>{key}</dt>
+								<dd aria-label={[...code].map((mark) => (mark === '.' ? 'dot' : 'dash')).join(' ')}>
+									{[...code].map((mark) => (mark === '.' ? '·' : '–')).join('')}
+								</dd>
+							</div>
+						))
+					}
+				</dl>
+			</div>
+		</dialog>
+
+		<dialog class="panel radio" id="radio-dialog" aria-labelledby="radio-title">
+			<header>
+				<h2 id="radio-title">Radio</h2>
+				<form method="dialog"><button class="close">Close</button></form>
+			</header>
+			<div class="body">
+				<p class="now">Drift</p>
+				<p class="muted">Made up in your browser as it plays: slow chords and a few plucked notes.</p>
+				<p class="radio-controls">
+					<button class="chip play" type="button" aria-pressed="false">Play</button>
+					<button class="chip headphones" type="button" aria-pressed="false">Headphones off</button>
+				</p>
+				<label class="volume">
+					Volume
+					<input type="range" min="0" max="1" step="0.01" value="0.6" />
+				</label>
+				<p class="muted">With the headphones on the hook, the music leaks out of them, muffled.</p>
+				<!-- The end: once the ship's safe (ui.js). Lines appear one by one. -->
+				<div class="call" hidden>
+					<p><button class="chip call-home" type="button">Call home</button></p>
+					<div class="call-lines" aria-live="polite">
+						<p class="muted" hidden>Calling Home…</p>
+						<p hidden>Mum: Love! Is that you? The news is all about a ship near Saturn. Some administrator talked it out of the rings. A whole ship of AI investors.</p>
+						<p hidden>Mum: They said it was fixed with a web page. I said, that'll be mine. Always good with computers.</p>
+						<p hidden>Mum: Come home when you can. Barry's funeral was lovely. They played Bowie.</p>
+						<p class="muted" hidden>The end. Thanks for playing.</p>
+					</div>
+				</div>
+			</div>
+		</dialog>
+
+		<dialog class="panel sync" id="panel-dialog" aria-labelledby="panel-title">
+			<header>
+				<h2 id="panel-title">Control panel</h2>
+				<form method="dialog"><button class="close">Close</button></form>
+			</header>
+			<div class="body">
+				<p class="sync-state">Fault E-07: out of sync.</p>
+				<p class="muted">It flashes a pattern; play it back. Three rounds, each longer.</p>
+				<div class="sync-pad" role="group" aria-label="Panel buttons">
+					{
+						[
+							['red', '#e8382c'],
+							['green', '#2fbf4f'],
+							['blue', '#2f6fe0'],
+							['yellow', '#f0c419'],
+						].map(([name, colour]) => (
+							<button type="button" class="sync-button" data-colour={name} aria-label={name} style={`--colour:${colour}`} />
+						))
+					}
+				</div>
+				<p><button class="chip sync-start" type="button">Start</button> <span class="sync-round muted"></span></p>
+				<p class="sync-status" aria-live="polite"></p>
+			</div>
+		</dialog>
+
+		<dialog
+			class="panel guitar"
+			id="guitar-dialog"
+			aria-labelledby="guitar-title"
+			data-out-of-tune="That sounded off. Something on the guitar is out of tune."
+		>
+			<header>
+				<h2 id="guitar-title">Guitar</h2>
+				<form method="dialog"><button class="close">Close</button></form>
+			</header>
+			<div class="body">
+				<div class="strings" role="group" aria-label="Strings, low to high">
+					{
+						['E', 'A', 'D', 'G', 'B', 'e'].map((name, i) => (
+							<button type="button" class="string" data-string={i} aria-label={`${name} string`}>
+								<span class="string-name">{name}</span>
+								<span class="string-line" style={`--thick:${3.2 - i * 0.45}px`} />
+							</button>
+						))
+					}
+				</div>
+				<p class="chords" role="group" aria-label="Chords">
+					{
+						['Open', 'Em', 'G', 'C', 'D', 'Am'].map((chord, i) => (
+							<button class="chip" type="button" data-chord={chord} aria-pressed={i === 0 ? 'true' : 'false'}>
+								{chord}
+							</button>
+						))
+					}
+					<button class="chip strum" type="button">Strum</button>
+				</p>
+				<p class="muted">
+					Click or drag across the strings. Keys 1 to 6 pluck them, the space bar strums.
+				</p>
+				<div class="tuner">
+					<p>
+						<strong>Tuner app</strong>
+						<span class="tuner-reading" aria-live="polite" data-in-tune="in tune" data-flat="cents flat" data-sharp="cents sharp">Pluck a string.</span>
+					</p>
+					<p>
+						G peg <button class="chip" type="button" data-peg="-1">Loosen</button>
+						<button class="chip" type="button" data-peg="1">Tighten</button>
+					</p>
+				</div>
+				<div class="songbook" aria-label="Songbook">
+					<p><strong>Songs I can nearly play</strong></p>
+					<p>Knockin' on Heaven's Door: G D Am, G D C</p>
+					<p>Space Oddity, the Ground Control bit: C Em, C Em</p>
+				</div>
+			</div>
+		</dialog>
+
+		<script>
+			import { initLaptop } from '../scripts/laptop.js';
+			import { initCabin } from '../scripts/ui.js';
+
+			const stage = document.querySelector('.stage');
+			const ui = initCabin(stage);
+			const laptop = initLaptop(document.getElementById('laptop-os'));
+
+			// Start the live cabin only where it can run well: WebGL 2 on a real
+			// GPU, not a software renderer. ?plain=1 keeps the still.
+			const plain = new URLSearchParams(location.search).has('plain');
+			const gl = plain
+				? null
+				: document
+						.createElement('canvas')
+						.getContext('webgl2', { failIfMajorPerformanceCaveat: true });
+			const info = gl?.getExtension('WEBGL_debug_renderer_info');
+			const gpu = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
+			gl?.getExtension('WEBGL_lose_context')?.loseContext();
+			if (!gl || /swiftshader|llvmpipe|software/i.test(gpu)) {
+				stage.dataset.plain = '';
+			} else {
+				const start = () =>
+					import('../scripts/cabin.js').then(async ({ startCabin }) => {
+						window.cabin = await startCabin(stage, ui, laptop);
+					});
+				addEventListener(
+					'load',
+					() => ('requestIdleCallback' in window ? requestIdleCallback(start) : setTimeout(start, 200)),
+					{ once: true },
+				);
+			}
+		</script>
+	</body>
+</html>

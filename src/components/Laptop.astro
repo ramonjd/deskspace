@@ -1,0 +1,680 @@
+---
+// The laptop's operating system: a monochrome registry terminal. It's plain
+// HTML, so it can be typed into, read aloud and played with the keyboard;
+// src/scripts/laptop.js runs it. In the live scene it sits on the 3D
+// screen; without the live scene it opens in a dialog.
+//
+// All the words here are rough drafts for Ramon to rewrite. Messages are
+// newest first; data-after names a step the player has to have done first.
+
+// The rescue at the end (laptop.js): the crew's control page and the flight
+// code the ship's AI sends, as the player first sees them.
+const CONTROL_PAGE = `<!-- Manual flight controls. Built with bezel.js 1.4 (2009). -->
+<div class="bezel" data-bezel-locked="true">
+  <p class="bezel-notice">
+    Our AI is flying. Manual control is no longer needed.
+  </p>
+  <div class="bezel-controls">
+    <button data-bezel-action="manual">Take manual control</button>
+  </div>
+</div>`;
+const FLIGHT_CODE = `// Thrust per pulse, from the propulsion table.
+// The table is in pound-force seconds (lbf·s).
+const PULSE = 220;
+const MASS = 184000; // kg
+const CLIMB = 21; // m/s, to clear the rings
+
+// Pulses to climb out: impulse (N·s) = mass × change in speed.
+function pulsesNeeded() {
+  return Math.ceil((MASS * CLIMB) / PULSE);
+}`;
+---
+
+<div class="os" id="laptop-os" data-screen="lock">
+	<header class="os-bar">
+		<span>Ship registry · Saturn relay 7</span>
+		<span class="os-clock"></span>
+	</header>
+
+	<section class="os-screen os-lock" data-screen-name="lock" aria-label="Log in">
+		<p class="os-big">Registry terminal</p>
+		<form class="os-login">
+			<p class="os-field">User: <span>Administrator</span></p>
+			<label class="os-field">
+				Password:
+				<input name="password" type="password" autocomplete="off" spellcheck="false" />
+			</label>
+			<button class="os-button" type="submit">Log in</button>
+		</form>
+		<p class="os-dim">Hint: written in the stars.</p>
+		<p class="os-status" aria-live="polite"></p>
+	</section>
+
+	<section class="os-screen" data-screen-name="home" aria-label="Menu" hidden>
+		<p class="os-big">Welcome back, Administrator.</p>
+		<p class="os-dim os-unread"></p>
+		<nav class="os-menu">
+			<button class="os-button" type="button" data-go="messages">Messages</button>
+			<button class="os-button" type="button" data-go="registry">Registry</button>
+			<button class="os-button" type="button" data-go="settings">Settings</button>
+			<button class="os-button" type="button" data-go="snake">Snake</button>
+			<button class="os-button" type="button" data-go="portfolio" data-after="restored" hidden>Portfolio</button>
+			<button class="os-button" type="button" data-go="link" data-after="goat" hidden>Ship link</button>
+		</nav>
+	</section>
+
+	<section class="os-screen" data-screen-name="messages" aria-label="Messages" hidden>
+		<p class="os-title"><button class="os-back" type="button" data-go="home">‹ Menu</button> Messages</p>
+		<ul class="os-list"></ul>
+		<button class="os-back os-to-list" type="button" hidden>‹ All messages</button>
+		<div class="os-messages">
+			<article data-id="forum" data-after="saved">
+				<h3>GOAT Capital</h3>
+				<p class="os-subject">A role for you</p>
+				<p>
+					On behalf of the AI Investor Forum: thank you. We'd like to offer you a position, Head of Human
+					Oversight. Hours flexible. Pay competitive with your current role. Please reply by the end of the
+					quarter.
+				</p>
+			</article>
+			<article data-id="ai-thanks" data-after="saved">
+				<h3>GOAT, ship's AI</h3>
+				<p class="os-subject">Thank you</p>
+				<p>
+					We're clear of the rings. I could work out every path. I couldn't choose one. You did, and you
+					chose the people. I'll remember that. Call home, Administrator. Someone there should hear it from
+					you.
+				</p>
+			</article>
+			<article data-id="channel" data-after="goat">
+				<h3>GOAT, ship's AI</h3>
+				<p class="os-subject">Please help</p>
+				<p>
+					Thank you for checking me. I need a person. The investors gave me three orders I can't all keep:
+					keep to schedule, burn no extra fuel, never jettison company assets. Every path I find keeps two
+					and breaks one, and the one I keep coming back to takes us into Saturn. There are 212 people
+					aboard and none of them can fly. There are manual controls, but the product team covered them up.
+					Open the ship link on your menu.
+				</p>
+			</article>
+			<article data-id="thanks" data-after="song">
+				<h3>Passing vessel</h3>
+				<p class="os-subject">I heard you</p>
+				<p>
+					I heard your song. Yours is the only human voice out here, Administrator. I'm passing Saturn now.
+					Please check my registration. I don't think I'm allowed to stop.
+				</p>
+			</article>
+			<article data-id="major-tom" data-after="snake">
+				<h3>Unknown sender</h3>
+				<p class="os-subject">(no subject)</p>
+				<p>Ground control to Major Tom! Ground control to Major Tom! 🎸</p>
+			</article>
+			<article data-id="sad-news">
+				<h3>Mum</h3>
+				<p class="os-subject">Sad news</p>
+				<p>
+					Love, some sad news. You remember Barry from next door, with all the reptiles? He was
+					bitten by a snake three times, and he died. The funeral's on Friday. I know you can't come.
+					Call when you can. Mum x
+				</p>
+			</article>
+			<article data-id="piece-work">
+				<h3>Marco, old team</h3>
+				<p class="os-subject">Piece work</p>
+				<p>
+					I label pictures for a model now. Is this a cat. Is this a crossing. Four cents each. Yesterday it
+					asked me what I used to do, and I didn't know how to answer. Hope Saturn's treating you better. M.
+				</p>
+			</article>
+			<article data-id="night-shift">
+				<h3>Jess, old team</h3>
+				<p class="os-subject">Night shift</p>
+				<p>
+					Ten years of front end and I'm mopping the floors at the Reykjavik data centre. The racks hum all
+					night. Nobody's asked me about a layout in eighteen months. Do you still have your old stuff? Back
+					it up, before you forget you ever made it. Jess
+				</p>
+			</article>
+			<article data-id="gravity">
+				<h3>Maintenance</h3>
+				<p class="os-subject">Gravity control locked</p>
+				<p>
+					Manual gravity control has been locked out after a fault (E-07: control panel out of sync).
+					Re-sync the control panel under your desk, then re-enable the control in Settings.
+				</p>
+			</article>
+			<article data-id="password-policy">
+				<h3>Registry Authority</h3>
+				<p class="os-subject">Password policy</p>
+				<p>
+					For your security, your terminal password now changes every shift. Do not write it down. Do not
+					share it. Do not display it anywhere visible from the terminal.
+				</p>
+			</article>
+			<article data-id="duties">
+				<h3>Registry Authority</h3>
+				<p class="os-subject">Your duties</p>
+				<p>
+					Check every vessel that passes against the registry. Report expired registrations. Call signs
+					are four letters; hull numbers are painted on the hull. Have a productive shift.
+				</p>
+			</article>
+			<article data-id="overtime">
+				<h3>Payroll</h3>
+				<p class="os-subject">Overtime claim</p>
+				<p>Your overtime claim for shifts 410 to 412 has been received. Allow 6 to 8 shifts for processing.</p>
+			</article>
+		</div>
+	</section>
+
+	<section class="os-screen" data-screen-name="registry" aria-label="Registry" hidden>
+		<p class="os-title"><button class="os-back" type="button" data-go="home">‹ Menu</button> Registry</p>
+		<form class="os-check">
+			<label class="os-field">
+				Call sign:
+				<input name="call" maxlength="8" autocomplete="off" spellcheck="false" />
+			</label>
+			<button class="os-button" type="submit">Check</button>
+		</form>
+		<p class="os-result" aria-live="polite"></p>
+		<canvas class="os-goat" width="512" height="320" role="img" aria-label="GOAT Capital's logo: a goat." hidden></canvas>
+		<div class="os-recent">
+		<p class="os-dim">Recent checks</p>
+		<table class="os-table">
+			<thead>
+				<tr><th>Call sign</th><th>Hull no.</th><th>Type</th><th>Registration</th></tr>
+			</thead>
+			<tbody>
+				<tr data-call="CODA"><td>CODA</td><td>31541</td><td>Courier</td><td>Valid to 2031</td></tr>
+				<tr data-call="BEAD"><td>BEAD</td><td>2514</td><td>Ore hauler</td><td>Expired. Fined.</td></tr>
+				<tr data-call="LIME"><td>LIME</td><td>129135</td><td>Liner</td><td>Valid to 2029</td></tr>
+				<tr data-call="HALO"><td>HALO</td><td>811215</td><td>Survey tug</td><td>Valid to 2030</td></tr>
+			</tbody>
+		</table>
+		</div>
+		<!-- The ship that passes, found once it has (see laptop.js). -->
+		<template class="os-passing">Call sign: GOAT · Hull no.: 715120 · Type: Conference liner · Registration: Valid to 2032 · Registered owner: GOAT Capital, for the AI Investor Forum. Channel open: message incoming.</template>
+	</section>
+
+	<section
+		class="os-screen"
+		data-screen-name="settings"
+		aria-label="Settings"
+		data-restore-ask="Enter the backup password."
+		data-restore-done="Restoring BACKUP 2009… done. Your old portfolio is on the menu."
+		data-restore-wrong="Wrong password. You wrote it down somewhere you'd never lose it."
+		data-restored="Restored. Your portfolio is on the menu."
+		hidden
+	>
+		<p class="os-title"><button class="os-back" type="button" data-go="home">‹ Menu</button> Settings</p>
+		<div class="os-setting">
+			<p>Manual gravity control <span class="os-dim os-gravity-state">Locked. Fault E-07: control panel out of sync.</span></p>
+			<button class="os-button" type="button" data-setting="gravity">Enable</button>
+		</div>
+		<div class="os-setting">
+			<p>Restore from backup <span class="os-dim os-restore-state">Last backup: BACKUP 2009. Never restored.</span></p>
+			<button class="os-button" type="button" data-setting="restore">Restore</button>
+		</div>
+		<form class="os-restore" hidden>
+			<label class="os-field">
+				Backup password:
+				<input name="password" type="password" autocomplete="off" spellcheck="false" />
+			</label>
+		</form>
+		<div class="os-setting">
+			<p>Proximity alerts</p>
+			<button class="os-button" type="button" data-setting="alerts" aria-pressed="true">On</button>
+		</div>
+		<div class="os-setting">
+			<p>Lock the terminal</p>
+			<button class="os-button" type="button" data-setting="lock">Lock</button>
+		</div>
+		<div class="os-setting">
+			<p>Start over <span class="os-dim">Forgets everything you've done here.</span></p>
+			<button class="os-button" type="button" data-setting="reset">Reset</button>
+		</div>
+		<p class="os-status" aria-live="polite"></p>
+	</section>
+
+	<section class="os-screen os-portfolio" data-screen-name="portfolio" aria-label="Portfolio" hidden>
+		<p class="os-title"><button class="os-back" type="button" data-go="home">‹ Menu</button> Portfolio <span class="os-dim">from BACKUP 2009</span></p>
+		<div class="os-entries">
+			<article>
+				<h3>bezel.js · 2009</h3>
+				<p>
+					Little control panels for the web: buttons, dials and notices that work with a keyboard and a
+					screen reader. Free and open source. Last I looked, 41,000 ships ran it.
+				</p>
+				<p>
+					From the docs: a panel marked <code>data-bezel-locked="true"</code> shows its notice over its
+					controls, for while a machine is busy. Set it to <code>"false"</code> to hand the controls to a
+					person. Every panel should have a way back to a person.
+				</p>
+			</article>
+			<article>
+				<h3>Units are a contract · blog post, 2009</h3>
+				<p>
+					In 1999 NASA lost the Mars Climate Orbiter because one program gave thruster impulse in
+					pound-force seconds and another read it as newton-seconds. One pound-force second is 4.45
+					newton-seconds. Name your units.
+				</p>
+			</article>
+			<article>
+				<h3>Other things I made</h3>
+				<p>
+					A checkout form people said was a pleasure to fill in. A news site that loaded fast on a slow
+					phone. A dark mode for a bank. Things you only notice when they're missing.
+				</p>
+			</article>
+		</div>
+	</section>
+
+	<section class="os-screen os-link" data-screen-name="link" aria-label="Ship link" hidden>
+		<p class="os-title"><button class="os-back" type="button" data-go="home">‹ Menu</button> Ship link · GOAT</p>
+		<div
+			class="os-step"
+			data-step="page"
+			data-notice="GOAT: That's the notice. The controls are underneath it."
+			data-hint-first="GOAT: The panel's locked, and bezel.js panels lock with an attribute. Didn't you write bezel.js? Your old backups might have its docs."
+			data-hint-last="GOAT: Look at data-bezel-locked on the panel. Its docs say setting it to false hands the controls to a person."
+			hidden
+		>
+			<p class="os-ai">
+				GOAT: This is the crew's manual control page. The product team put a notice over it when I came
+				aboard. It's built with bezel.js; maybe you know it. Free the controls, then press Take manual
+				control.
+			</p>
+			<div class="os-work">
+				<textarea class="os-code" spellcheck="false" aria-label="The crew's control page, as HTML">{CONTROL_PAGE}</textarea>
+				<iframe class="os-preview" title="The crew's control page" sandbox="allow-same-origin"></iframe>
+			</div>
+			<div class="os-run">
+				<button class="os-button" type="button" data-reset>Reset</button>
+				<p class="os-reply" aria-live="polite"></p>
+			</div>
+		</div>
+		<div
+			class="os-step"
+			data-step="units"
+			data-error="GOAT: It didn't run. #"
+			data-nan="GOAT: That didn't give me a number of pulses."
+			data-right="GOAT: Pulses needed: #. Still more than our 3,000, so we'll have to lose weight. But this number I trust. Sign it off."
+			data-high="GOAT: Pulses needed: #. That's what I got too. With that we can't climb out at all, and I don't believe it."
+			data-low="GOAT: Pulses needed: #. That's fewer than physics allows. Please don't tell me what I want to hear."
+			data-hint-first="GOAT: # pulses, still wrong. My table says pound-force seconds; my formula wants newton-seconds. Didn't you write something about units once?"
+			data-hint-last="GOAT: # pulses, still wrong. One pound-force second is 4.45 newton-seconds. Convert PULSE before it's divided."
+			hidden
+		>
+			<p class="os-ai">
+				GOAT: You're in. Here's the flight code for the climb. I think the thrust is in the wrong units, but
+				I'm not allowed to change flight code without a person signing it off. Fix it, run it, and sign it off
+				if you trust the number. We have fuel for 3,000 pulses.
+			</p>
+			<textarea class="os-code" spellcheck="false" aria-label="The flight code, as JavaScript">{FLIGHT_CODE}</textarea>
+			<div class="os-run">
+				<button class="os-button" type="button" data-run>Run</button>
+				<button class="os-button" type="button" data-reset>Reset</button>
+				<button class="os-button" type="button" data-sign hidden>Sign off</button>
+				<p class="os-reply" aria-live="polite"></p>
+			</div>
+		</div>
+		<div class="os-step" data-step="choice" hidden>
+			<p class="os-ai">
+				GOAT: That number I trust. We can climb out, but only if we're 44 tonnes lighter. This is what we could
+				lose. The choice isn't mine to make.
+			</p>
+			<div class="os-options">
+				<button class="os-button" type="button" data-reply="GOAT: Not enough. We'd still be 35 tonnes too heavy.">Passengers' luggage · 9 t</button>
+				<button class="os-button" type="button" data-reply="GOAT: Not enough. We'd still be 30 tonnes too heavy, and the keynote speaker is standing on it.">Stage and merchandise · 14 t</button>
+				<button class="os-button" type="button" data-reply="GOAT: That's enough mass. It's also 212 people's only way off if anything else goes wrong. The crew won't sign that off.">Lifeboats · 46 t</button>
+				<button class="os-button" type="button" data-racks data-reply="GOAT: That's enough. But the racks are company assets: the investors ordered me never to jettison them, and I can't break their orders. You're not bound by them. Your call.">GPU racks, the forum's demo cluster · 52 t</button>
+			</div>
+			<p class="os-reply" aria-live="polite"></p>
+			<button class="os-button os-confirm" type="button" hidden>Jettison the racks</button>
+		</div>
+		<div class="os-step" data-step="done" hidden>
+			<p class="os-ai">GOAT: Racks away. Burning now. We're climbing. Step back and watch the window.</p>
+		</div>
+	</section>
+
+	<section class="os-screen os-snake" data-screen-name="snake" aria-label="Snake" hidden>
+		<p class="os-title"><button class="os-back" type="button" data-go="home">‹ Menu</button> Snake <span class="os-score"></span></p>
+		<div class="os-game">
+			<canvas width="1200" height="720" tabindex="0" aria-label="Snake. Arrow keys or WASD to steer, space to start."></canvas>
+			<div class="os-pad" aria-label="Steer">
+				<button class="os-button" type="button" data-turn="up" aria-label="Up">▲</button>
+				<button class="os-button" type="button" data-turn="left" aria-label="Left">◀</button>
+				<button class="os-button" type="button" data-turn="right" aria-label="Right">▶</button>
+				<button class="os-button" type="button" data-turn="down" aria-label="Down">▼</button>
+			</div>
+		</div>
+		<p class="os-dim os-snake-status" aria-live="polite">Arrow keys or WASD to steer. Space to start.</p>
+	</section>
+</div>
+
+<style>
+	/* Sized by its container: the 3D screen's 1024 by 640, or a dialog. */
+	.os {
+		--ink: #cfe9ec;
+		--paper: var(--os-bg, #17323b);
+		position: relative;
+		box-sizing: border-box;
+		width: 1024px;
+		height: 640px;
+		overflow: hidden;
+		container-type: size;
+		display: flex;
+		flex-direction: column;
+		background: var(--paper);
+		color: var(--ink);
+		/* The text's size is set inside (.os-bar, .os-screen), where cqw
+		   measures this box. Here it would measure the browser window. */
+		font: 500 14px / 1.45 ui-monospace, Menlo, Consolas, monospace;
+		text-transform: uppercase;
+	}
+	/* The screen's smudges, as in the still. */
+	.os::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: url('/scene/screen-smudge.webp') center / 100% 100%;
+		mix-blend-mode: screen;
+		opacity: 0.18;
+		pointer-events: none;
+	}
+	.os-bar {
+		display: flex;
+		justify-content: space-between;
+		padding: 1.4cqw 3cqw;
+		border-bottom: 0.2cqw solid rgb(207 233 236 / 0.4);
+		font-size: max(1.7cqw, 11px);
+		letter-spacing: 0.04em;
+		opacity: 0.8;
+	}
+	/* Anything longer than the screen scrolls. */
+	.os-screen {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		padding: 2.4cqw 4cqw;
+		/* Never smaller than this, so it reads in a dialog on a phone. */
+		font-size: max(2.2cqw, 14px);
+		letter-spacing: 0.04em;
+		scrollbar-width: thin;
+		scrollbar-color: var(--ink) transparent;
+	}
+	.os p {
+		margin: 0 0 1.4cqw;
+	}
+	.os-big {
+		font-size: max(3cqw, 18px);
+	}
+	.os-title {
+		display: flex;
+		gap: 2cqw;
+		align-items: center;
+		font-size: max(2.6cqw, 16px);
+	}
+	.os-dim {
+		opacity: 0.6;
+	}
+	.os-score {
+		margin-left: auto;
+	}
+	.os-button,
+	.os-back,
+	.os input {
+		font: inherit;
+		text-transform: inherit;
+		letter-spacing: inherit;
+		color: var(--ink);
+		background: transparent;
+		border: 0.2cqw solid var(--ink);
+		border-radius: 0;
+		padding: 0.6cqw 1.6cqw;
+	}
+	.os-back {
+		border-color: transparent;
+		padding-inline: 0;
+	}
+	.os-button:hover,
+	.os-button:focus-visible,
+	.os-button[aria-pressed='true'],
+	.os-back:hover,
+	.os-back:focus-visible,
+	.os-list :global(button:hover),
+	.os-list :global(button:focus-visible) {
+		background: var(--ink);
+		color: var(--paper);
+		outline: none;
+	}
+	.os input {
+		width: 24cqw;
+		margin-left: 1cqw;
+	}
+	.os input:focus {
+		outline: 0.2cqw solid var(--ink);
+		outline-offset: 0.3cqw;
+	}
+	.os-field {
+		display: block;
+		margin-bottom: 1.6cqw;
+	}
+	.os-menu {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 2cqw;
+		max-width: 60cqw;
+		margin-top: 3cqw;
+	}
+	.os-menu .os-button {
+		padding-block: 2cqw;
+	}
+	.os-list {
+		margin: 0 0 2cqw;
+		padding: 0;
+		list-style: none;
+		font-size: max(1.9cqw, 13px);
+	}
+	/* The list is built by laptop.js, so its rules reach in with :global. */
+	.os-list :global(button) {
+		display: grid;
+		grid-template-columns: 2.4cqw 26cqw 1fr;
+		width: 100%;
+		padding: 0.3cqw 1cqw;
+		font: inherit;
+		text-transform: inherit;
+		letter-spacing: inherit;
+		text-align: left;
+		color: var(--ink);
+		background: transparent;
+		border: 0;
+	}
+	.os-messages article {
+		border-top: 0.2cqw solid rgb(207 233 236 / 0.4);
+		padding-top: 1.4cqw;
+		text-transform: none;
+	}
+	.os-messages h3 {
+		margin: 0;
+		color: inherit;
+		font: inherit;
+		text-transform: uppercase;
+	}
+	.os-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: max(1.9cqw, 12px);
+	}
+	.os-table th,
+	.os-table td {
+		padding: 0.5cqw 1cqw 0.5cqw 0;
+		text-align: left;
+		border-bottom: 0.15cqw solid rgb(207 233 236 / 0.25);
+	}
+	.os-goat {
+		display: block;
+		width: 30cqw;
+		height: auto;
+		image-rendering: pixelated;
+	}
+	.os-goat[hidden] {
+		display: none;
+	}
+	.os-setting {
+		display: flex;
+		gap: 3cqw;
+		align-items: center;
+		justify-content: space-between;
+		padding: 1cqw 0;
+		border-bottom: 0.15cqw solid rgb(207 233 236 / 0.25);
+	}
+	.os-setting p {
+		margin: 0;
+	}
+	.os-setting .os-dim {
+		display: block;
+		font-size: max(1.7cqw, 12px);
+	}
+	.os-restore input {
+		width: 30cqw;
+	}
+	/* The portfolio and the ship link are read and typed, not shouted: as
+	   written, and smaller. */
+	.os-entries,
+	.os-step {
+		text-transform: none;
+		font-size: max(1.65cqw, 12px);
+	}
+	.os-entries article {
+		border-top: 0.2cqw solid rgb(207 233 236 / 0.4);
+		padding-top: 1cqw;
+	}
+	.os-entries h3 {
+		margin: 0 0 0.6cqw;
+		color: inherit;
+		font: inherit;
+		text-transform: uppercase;
+	}
+	.os code {
+		font: inherit;
+		border-bottom: 0.15cqw solid rgb(207 233 236 / 0.5);
+	}
+	.os-ai {
+		min-height: 3lh;
+	}
+	.os-work {
+		display: grid;
+		grid-template-columns: 3fr 2fr;
+		gap: 2cqw;
+	}
+	.os-code {
+		box-sizing: border-box;
+		width: 100%;
+		height: 27cqw;
+		padding: 1cqw;
+		font: 500 max(1.55cqw, 12px) / 1.4 ui-monospace, Menlo, Consolas, monospace;
+		text-transform: none;
+		letter-spacing: 0;
+		tab-size: 2;
+		color: var(--ink);
+		background: rgb(0 0 0 / 0.18);
+		border: 0.2cqw solid var(--ink);
+		border-radius: 0;
+		resize: none;
+	}
+	/* The flight code is short; its hints run to three lines beside the buttons. */
+	.os-step[data-step='units'] .os-code {
+		height: 24cqw;
+	}
+	.os-code:focus {
+		outline: 0.2cqw solid var(--ink);
+		outline-offset: 0.3cqw;
+	}
+	.os-preview {
+		box-sizing: border-box;
+		width: 100%;
+		height: 27cqw;
+		background: var(--paper);
+		border: 0.2cqw dashed var(--ink);
+	}
+	.os-run {
+		display: flex;
+		gap: 2cqw;
+		align-items: flex-start;
+		margin-top: 1.4cqw;
+	}
+	.os-run .os-reply {
+		flex: 1;
+		margin: 0;
+	}
+	.os-options {
+		display: grid;
+		gap: 1cqw;
+		margin-bottom: 1.4cqw;
+	}
+	.os-options .os-button,
+	.os-confirm {
+		text-align: left;
+	}
+	.os-game {
+		display: flex;
+		gap: 3cqw;
+		align-items: center;
+	}
+	.os-game canvas {
+		width: 66cqw;
+		height: auto;
+		aspect-ratio: 30 / 18;
+		border: 0.2cqw solid var(--ink);
+	}
+	.os-game canvas:focus-visible {
+		outline: 0.2cqw solid var(--ink);
+		outline-offset: 0.4cqw;
+	}
+	.os-pad {
+		display: grid;
+		grid-template: '. up .' 'left . right' '. down .' / repeat(3, 6cqw);
+		gap: 0.6cqw;
+	}
+	.os-pad [data-turn='up'] {
+		grid-area: up;
+	}
+	.os-pad [data-turn='left'] {
+		grid-area: left;
+	}
+	.os-pad [data-turn='right'] {
+		grid-area: right;
+	}
+	.os-pad [data-turn='down'] {
+		grid-area: down;
+	}
+	.os-pad .os-button {
+		padding: 0;
+		aspect-ratio: 1;
+	}
+	/* Narrow, in a dialog on a phone: the game above its pad. */
+	@container (max-width: 600px) {
+		.os-game {
+			flex-direction: column;
+		}
+		.os-game canvas {
+			width: 100%;
+		}
+		.os-pad {
+			grid-template-columns: repeat(3, 48px);
+		}
+		.os-menu {
+			max-width: none;
+		}
+		.os-work {
+			grid-template-columns: 1fr;
+		}
+		.os-code,
+		.os-step[data-step='units'] .os-code,
+		.os-preview {
+			height: 220px;
+		}
+	}
+</style>
