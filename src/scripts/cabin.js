@@ -106,7 +106,7 @@ const CLICK_SLOP = 6;
 // drift in the desk lamp's beam, out to spread of its width.
 const AMBIENT = {
 	fps: 30,
-	haze: 0.45,
+	haze: 0.675,
 	halo: 0.3,
 	flicker: { every: [8, 16], gap: 0.36 },
 	steam: { puffs: 6, seconds: 4, rise: 0.4 },

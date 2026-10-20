@@ -752,9 +752,16 @@ def distance_from(center, near, far):
 	return build
 
 
+# The walls: old paint gone the grey-beige of years of recycled air, streaked
+# with grime, and rust run down the back wall from under the viewport.
+RUST_RUN = (0.16, 0.07, 0.03)
 cream = material(
-	"cream-panel", (0.86, 0.79, 0.67), rough=0.55, photo="PaintedMetal012", photo_size=2.7, photo_bump=0.25, grime=0.4, dirt=0.5,
-	pattern=layers(grid(1.5, 0.012, (0.3, 0.27, 0.22), axes=("X", "Y", "Z")), scorch(OUTLET[0] + 0.33, OUTLET[1], 0.2)),
+	"cream-panel", (0.56, 0.53, 0.46), rough=0.55, photo="PaintedMetal012", photo_size=2.7, photo_bump=0.25, grime=0.85, dirt=0.8,
+	pattern=layers(
+		grid(1.5, 0.012, (0.3, 0.27, 0.22), axes=("X", "Y", "Z")),
+		scorch(OUTLET[0] + 0.33, OUTLET[1], 0.2),
+		*[drip(x, WALL_Y - 0.05, 1.74, length, RUST_RUN) for x, length in ((-2.05, 0.5), (-0.95, 0.35), (-0.15, 0.25), (1.35, 0.45), (2.3, 0.55))],
+	),
 )
 charcoal = material("charcoal", (0.3, 0.3, 0.32), rough=0.6, photo="DiamondPlate009", photo_size=0.8, photo_bump=0.6, grime=0.3, dust=0.2, dirt=0.4)
 rib = material("rib", (0.28, 0.28, 0.3), rough=0.45, photo="Metal038", photo_size=0.9, photo_bump=0.15, scratches=0.15, grime=0.25, dirt=0.35)
@@ -1038,6 +1045,35 @@ stencil("stencil-life", "LIFE SUPPORT", (4.675, -2.6, 3.35), (-1, 0, 0), 0.16, r
 # In paint of its own, not the wall's, so the bake can give its letters more room (island_scale).
 stencil_paint = material("stencil-cream", (0.86, 0.79, 0.67), rough=0.55, photo="PaintedMetal012", photo_size=2.7, photo_bump=0.25, grime=0.4, dirt=0.5)
 stencil("stencil-viewport", "VIEWPORT 1", (1.5, 1.774, WINDOW["z"] - 1.12), (0, -1, 0), 0.075, stencil_paint)
+
+# Services run in the open, either side of the viewport, in front of the
+# ribs. Left, a painted pipe up from the wall at desk height to the ceiling,
+# flanged, bracketed and with a valve wheel; right, two conduits clipped to
+# the wall, through a junction box.
+pipe_paint = material("pipe-paint", (0.17, 0.2, 0.16), rough=0.5, photo="PaintedMetal012", photo_size=0.8, scratches=0.25, grime=0.6, dirt=0.6)
+conduit_grey = material("conduit", (0.33, 0.33, 0.34), rough=0.5, scratches=0.15, grime=0.45, dirt=0.5)
+PIPE = Vector((-2.54, 1.72, 0))
+cylinder("pipe-left", PIPE + Vector((0, 0, 3.15)), 0.05, 3.7, pipe_paint, vertices=24)
+cylinder("pipe-left-elbow", PIPE + Vector((0, 0.14, 1.3)), 0.05, 0.28, pipe_paint, rotation=(90, 0, 0), vertices=24)
+for i, z in enumerate((1.9, 3.1, 4.3)):
+	cylinder(f"pipe-left-flange-{i}", PIPE + Vector((0, 0, z)), 0.066, 0.04, pipe_paint, bevel=0.005, vertices=24)
+	box(f"pipe-left-bracket-{i}", PIPE + Vector((0, 0.15, z + 0.35)), (0.04, 0.26, 0.03), rib, bevel=0.005)
+VALVE = PIPE + Vector((0, -0.12, 2.55))
+valve_red = material("valve-red", (0.55, 0.06, 0.04), rough=0.45, scratches=0.3, grime=0.3)
+cylinder("pipe-valve-stem", PIPE + Vector((0, -0.07, 2.55)), 0.012, 0.11, steel, rotation=(90, 0, 0), vertices=12)
+bpy.ops.mesh.primitive_torus_add(major_radius=0.085, minor_radius=0.011, major_segments=32, minor_segments=8, location=VALVE, rotation=(math.pi / 2, 0, 0))
+wheel = bpy.context.object
+wheel.name = "pipe-valve-wheel"
+finish(wheel, valve_red, smooth=40)
+for i in range(3):
+	box(f"pipe-valve-spoke-{i}", VALVE, (0.17, 0.012, 0.012), valve_red, rotation=(0, 60 * i, 0))
+CONDUIT_X = 2.54
+for i, (dx, radius) in enumerate(((-0.04, 0.022), (0.04, 0.018))):
+	cylinder(f"conduit-{i}", (CONDUIT_X + dx, 1.75, 3.05), radius, 3.9, conduit_grey, vertices=16)
+for i, z in enumerate((1.5, 2.9, 3.7, 4.5)):
+	box(f"conduit-clip-{i}", (CONDUIT_X, 1.765, z), (0.14, 0.03, 0.025), rib, bevel=0.004)
+box("conduit-box", (CONDUIT_X, 1.72, 2.2), (0.16, 0.07, 0.22), conduit_grey, bevel=0.01)
+box("conduit-box-label", (CONDUIT_X, 1.684, 2.23), (0.1, 0.002, 0.06), hazard_paint)
 box("vent-panel", (-4.68, -2.2, 2.55), (0.03, 0.9, 0.6), rib, bevel=0.01)
 for i in range(7):
 	box(f"vent-slat-{i}", (-4.66, -2.2, 2.33 + 0.072 * i), (0.03, 0.8, 0.03), charcoal, rotation=(30, 0, 0))
@@ -1645,7 +1681,7 @@ cable("cable-speaker", [SPEAKER + Vector((0.08, 0, -0.09)), Vector((-1.67, 1.87,
 # thicker towards the ceiling, brighter near the bulb and the ceiling panel,
 # and fading out before the side walls. The live scene draws them the same
 # way, at HAZE_STRENGTH, and lets them breathe.
-HAZE_STRENGTH = 0.25
+HAZE_STRENGTH = 0.375
 HAZE_PIXELS = (512, 128)
 haze_sheets = []
 for i, (y, bottom) in enumerate(((1.4, 3.0), (0.1, 2.8), (-1.4, 2.6))):
@@ -1965,21 +2001,22 @@ def light(kind, location, energy, color, size=1.0, size_y=None, target=None, rot
 	return obj
 
 
-# Mood: the overhead panel turned well down, so the room is lit mostly by its
-# practical lights: warm pools from the desk lamp and the bare bulb against
-# the cool of the screens and the window.
-light("AREA", (0, 0.5, 4.85), 75, (1.0, 0.7, 0.45), size=6, size_y=1.4, target=(0, 0.5, 0))
-light("AREA", (0, -4.5, 3.6), 10, (1.0, 0.82, 0.65), size=6, size_y=2, target=(0, 1.5, 1.5))
-hanging = light("POINT", BULB, 180, (1.0, 0.55, 0.26))
+# Mood: low key. The overhead panel is nearly dead and there's hardly any
+# fill, so the room is lit by its practical lights: warm pools from the desk
+# lamp and the bare bulb against the cool of the screens and the window,
+# with deep shadow between them.
+light("AREA", (0, 0.5, 4.85), 22, (1.0, 0.7, 0.45), size=6, size_y=1.4, target=(0, 0.5, 0))
+light("AREA", (0, -4.5, 3.6), 3, (0.85, 0.85, 0.9), size=6, size_y=2, target=(0, 1.5, 1.5))
+hanging = light("POINT", BULB, 200, (1.0, 0.52, 0.22))
 hanging.data.shadow_soft_size = 0.03
-desk_lamp = light("SPOT", bulb_at, 420, (1.0, 0.64, 0.34), target=lamp_target)
+desk_lamp = light("SPOT", bulb_at, 480, (1.0, 0.6, 0.3), target=lamp_target)
 desk_lamp.data.spot_size = math.radians(70)
 desk_lamp.data.spot_blend = 0.35
 desk_lamp.data.shadow_soft_size = 0.04
-light("AREA", lid_center + lid_front * 0.3, 18, (0.7, 0.82, 1.0), size=1.1, size_y=0.7, target=lid_center + lid_front * 2)
+light("AREA", lid_center + lid_front * 0.3, 24, (0.6, 0.78, 1.0), size=1.1, size_y=0.7, target=lid_center + lid_front * 2)
 # Kept clear of the window's frame: tilted, its lower edge used to reach into
 # the opening and light a thin bright arc there that shimmered.
-light("AREA", (0, 1.6, WINDOW["z"]), 32, (0.72, 0.8, 1.0), size=WINDOW["width"], size_y=WINDOW["height"], target=(0, -3, 2.4))
+light("AREA", (0, 1.6, WINDOW["z"]), 22, (0.55, 0.7, 1.0), size=WINDOW["width"], size_y=WINDOW["height"], target=(0, -3, 2.4))
 
 # Sunlight for Saturn only: linked so it neither lights nor is blocked by the cabin.
 sunlit = bpy.data.collections.new("sunlit")
