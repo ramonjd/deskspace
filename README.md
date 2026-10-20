@@ -36,6 +36,8 @@ The story: the administrator is a front-end developer who lost the job to AI and
 4. The ship link on the laptop, in three steps: free the crew's manual controls from a bezel.js notice (HTML, with a live preview; press the button once it's free), fix the units in the flight code (JavaScript, run in the browser; pound-force seconds to newton-seconds), then choose what to jettison. Only the GPU racks work, and only a person can break the investors' order to keep them.
 5. The ship climbs away once you step back from the laptop. Its engines tell the story: a steady burn as it glides in, a low idle when it stops, cold while it sinks (only its attitude thrusters puff), and a full burn as it climbs away. Once it's clear, the AI's last message says why it called you: your name is in bezel.js's credits, and it quotes your slide back to you. Then the phone buzzes with a voice message from Earth, sent 79 minutes earlier (light's travel time): the Frontend Developer Conference wants you for its closing keynote, on Earth, on Tuesday. GOAT heard it, comes back for you and waits in the window, and the end card says part two starts at Jupiter. With reduced motion, the ship leaves as you step back from the laptop.
 
+Now and then a shooting star crosses the window, and something drifts past it, once each and never again (`seen-*` in progress): a lost teddy bear in a scarf, and Voyager 1, almost a light-day from home and very lost. Their pictures are drawn by `scene/cabin.py` (`teddy.webp`, `voyager.webp`); `window.cabin.visit('teddy')`, `'voyager'` or `'star'` brings one on now.
+
 Each step is saved as you go (`progress.js`).
 
 ## The cabin
