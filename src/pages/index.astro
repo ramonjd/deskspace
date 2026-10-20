@@ -135,15 +135,35 @@ const signalStyle = `<style>
 				top: calc((100cqh - var(--h)) * 0.6);
 				transition: opacity 0.25s;
 			}
-			/* Darker towards the edges, like an old lens. */
+			/* Darker towards the edges, like an old lens, and grainy, like a
+			   camera in low light: noise that shifts a few times a second, and
+			   holds still with reduced motion. */
 			.vignette,
+			.grain,
 			.dim {
 				position: absolute;
 				inset: 0;
 				pointer-events: none;
 			}
 			.vignette {
-				background: radial-gradient(ellipse 75% 80% at 48% 52%, transparent 55%, rgb(12 7 4 / 0.5) 100%);
+				background: radial-gradient(ellipse 75% 80% at 48% 52%, transparent 45%, rgb(8 6 5 / 0.65) 100%);
+			}
+			.grain {
+				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+				mix-blend-mode: overlay;
+				opacity: 0.16;
+				animation: grain 0.5s steps(1) infinite;
+			}
+			@keyframes grain {
+				0% { background-position: 0 0; }
+				25% { background-position: -61px 37px; }
+				50% { background-position: 43px -89px; }
+				75% { background-position: -97px -23px; }
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.grain {
+					animation: none;
+				}
 			}
 			/* The room darkening round the bare bulb when cabin.js makes it
 			   flicker. At most 9% darker, so it stays well under the 10%
@@ -832,6 +852,7 @@ const signalStyle = `<style>
 				}
 			</div>
 			<div class="vignette" aria-hidden="true"></div>
+			<div class="grain" aria-hidden="true"></div>
 			<div class="dim" aria-hidden="true"></div>
 			<!-- Waking up while the live scene loads (the script below). -->
 			<div class="wake" aria-hidden="true">
