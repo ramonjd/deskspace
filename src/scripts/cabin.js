@@ -12,6 +12,7 @@
 import {
 	AdditiveBlending,
 	Box3,
+	BoxGeometry,
 	BufferAttribute,
 	CatmullRomCurve3,
 	BufferGeometry,
@@ -143,14 +144,20 @@ const GRAVITY = {
 // to where it was floating.
 const THROW = { fastest: 5, spin: 8, air: 0.25, spinAir: 0.2, restitution: 0.5, home: 2.5, pull: 1.5 };
 
+// The desk lamp switched off: how far its pool on the desk reaches across
+// and towards you, and how far round its bulb it's darker, in metres.
+const LAMP = { across: new Vector3(1.2, 0, 0), deep: new Vector3(0, 0, 0.9), bulb: new Vector3(0.3, 0, 0), above: new Vector3(0, 0.3, 0) };
+
 // The crack in the window, leaking while the gravity's off: the draught takes
 // DO NOT LOSE to it in seconds, and once there it rattles by rattle metres.
 const LEAK = { seconds: 12, rattle: 0.004 };
 
 // Blobs of water from the pouch: radius metres across, at most most of them
 // at once. One hitting something faster than splat metres a second splats;
-// the plant that drinks one bounces for perk seconds.
-const BLOB = { radius: 0.045, most: 6, splat: 0.35, perk: 0.7 };
+// the plant that drinks one bounces for perk seconds. The plant catches a
+// blob within catch metres of it, and one thrown within reach metres is
+// pulled in at pull metres a second each second.
+const BLOB = { radius: 0.045, most: 6, splat: 0.35, perk: 0.7, catch: 0.12, reach: 1.0, pull: 4 };
 
 export async function startCabin(stage, ui, laptop) {
 	const canvas = stage.querySelector('.live');
@@ -885,6 +892,45 @@ export async function startCabin(stage, ui, laptop) {
 		}),
 	);
 	scene.add(dust);
+
+	// ------------------------------------------------------------ the desk lamp
+
+	// Its light is baked in, so switching it off darkens where it shone: a
+	// multiply layer (.lamp-off) over its pool on the desk and its bulb,
+	// placed wherever they are on screen as the view moves. The motes in its
+	// beam go with it. A click on the lamp, or the Tab menu, switches it.
+	const lampShade = stage.querySelector('.lamp-off');
+	const pool = scene.getObjectByName('dust-to').position;
+	const lampHit = new Mesh(new BoxGeometry(0.7, 0.6, 0.7), new MeshBasicMaterial({ visible: false }));
+	lampHit.position.copy(dustFrom);
+	lampHit.userData.prop = 'lamp';
+	scene.add(lampHit);
+	hits.push(lampHit);
+	labels.lamp = 'Desk lamp';
+	let deskLampOn = true;
+	const shadeAt = new Vector3();
+	function onStage(point) {
+		shadeAt.copy(point).project(camera);
+		return [((shadeAt.x + 1) / 2) * 100, ((1 - shadeAt.y) / 2) * 100];
+	}
+	function placeLampShade() {
+		if (deskLampOn) return;
+		const [x, y] = onStage(pool);
+		const [across] = onStage(shadeAt.copy(pool).add(LAMP.across));
+		const [, deep] = onStage(shadeAt.copy(pool).add(LAMP.deep));
+		const [bx, by] = onStage(dustFrom);
+		const [reach] = onStage(shadeAt.copy(dustFrom).add(LAMP.bulb));
+		const [, above] = onStage(shadeAt.copy(dustFrom).add(LAMP.above));
+		lampShade.style.cssText = `--pool-x:${x}%;--pool-y:${y}%;--pool-rx:${Math.abs(across - x)}%;--pool-ry:${Math.abs(deep - y)}%;--bulb-x:${bx}%;--bulb-y:${by}%;--bulb-rx:${Math.abs(reach - bx)}%;--bulb-ry:${Math.abs(above - by)}%`;
+	}
+	function switchLamp() {
+		deskLampOn = !deskLampOn;
+		if (deskLampOn) delete stage.dataset.lampOff;
+		else stage.dataset.lampOff = '';
+		dust.visible = deskLampOn && !reduceMotion.matches;
+		ui.lamp(deskLampOn);
+		requestRender();
+	}
 	function stir(now, seconds) {
 		for (let i = 0; i < motes; i++) {
 			mote.fromArray(motePositions, i * 3).addScaledVector(moteDrift[i], seconds);
@@ -1048,6 +1094,7 @@ export async function startCabin(stage, ui, laptop) {
 	const blobGeometry = new SphereGeometry(BLOB.radius, 16, 12);
 	const blobMaterial = new MeshBasicMaterial({ color: new Color().setRGB(0.7, 0.88, 1, SRGBColorSpace), transparent: true, opacity: 0.75, depthWrite: false });
 	const plantBox = new Box3();
+	const plantCentre = new Vector3();
 	let plantPerk = -Infinity;
 	let squeezed = false;
 	function squeeze() {
@@ -1058,9 +1105,21 @@ export async function startCabin(stage, ui, laptop) {
 		blobs.set(blob, { velocity: new Vector3(between(-0.03, 0.03), 0.06, 0.04), phase: between(0, Math.PI * 2) });
 		radii.set(blob, BLOB.radius);
 		if (blobs.size > BLOB.most) burst(blobs.keys().next().value);
-		if (!squeezed) ui.say('A wobbling blob of water. Throw it at the plant.');
+		if (!squeezed) ui.say('A wobbling blob of water. Throw it at the plant, or click the plant to tip it in.');
 		squeezed = true;
 		requestRender();
+	}
+	// A click on the plant tips the floating blob nearest it in.
+	function waterPlant() {
+		const floating = [...blobs.keys()].filter((blob) => !moves.get(blob)?.held);
+		if (!floating.length) return false;
+		plantBox.setFromObject(scene.getObjectByName('hit-plant')).getCenter(plantCentre);
+		const nearest = floating.reduce((a, b) => (a.position.distanceTo(plantCentre) < b.position.distanceTo(plantCentre) ? a : b));
+		const state = blobs.get(nearest);
+		state.velocity.subVectors(plantCentre, nearest.position).setLength(0.8);
+		state.thrown = true;
+		requestRender();
+		return true;
 	}
 	function burst(blob) {
 		blobs.delete(blob);
@@ -1073,11 +1132,16 @@ export async function startCabin(stage, ui, laptop) {
 		const perking = (now - plantPerk) / BLOB.perk;
 		plant.scale.setScalar(perking < 1 ? 1 + 0.08 * Math.sin(Math.PI * perking) : 1);
 		if (!blobs.size) return;
-		plantBox.setFromObject(scene.getObjectByName('hit-plant'));
+		plantBox.setFromObject(scene.getObjectByName('hit-plant')).expandByScalar(BLOB.catch);
+		plantBox.getCenter(plantCentre);
 		for (const [blob, state] of blobs) {
 			const wobble = now * 7 + state.phase;
 			blob.scale.set(1 + 0.12 * Math.sin(wobble), 1 + 0.12 * Math.sin(wobble + 2.1), 1 + 0.12 * Math.sin(wobble + 4.2));
 			if (moves.get(blob)?.held) continue;
+			if (state.thrown) {
+				toward.subVectors(plantCentre, blob.position);
+				if (toward.length() < BLOB.reach) state.velocity.addScaledVector(toward.normalize(), BLOB.pull * seconds);
+			}
 			state.velocity.multiplyScalar(Math.exp(-THROW.air * seconds));
 			blob.position.addScaledVector(state.velocity, seconds);
 			if (plantBox.containsPoint(blob.position)) {
@@ -1211,6 +1275,7 @@ export async function startCabin(stage, ui, laptop) {
 	// the scene's data, and the picking boxes of the props that stay put.
 	gltf.scene.updateMatrixWorld(true);
 	const room = new Box3().setFromArray(cabinData.bounds.room.flat());
+	const deskTop = cabinData.bounds.desk[1][1];
 	const fixed = [
 		new Box3().setFromArray(cabinData.bounds.desk.flat()),
 		...hits.filter((hit) => hit.parent === gltf.scene).map((hit) => new Box3().setFromObject(hit)),
@@ -1417,7 +1482,7 @@ export async function startCabin(stage, ui, laptop) {
 	function startMoving() {
 		const calm = reduceMotion.matches;
 		for (const puff of puffs) puff.visible = !calm;
-		dust.visible = !calm;
+		dust.visible = !calm && deskLampOn;
 		if (calm) {
 			bulb.material.color.copy(bulbColour);
 			halo.material.opacity = AMBIENT.halo;
@@ -1449,6 +1514,7 @@ export async function startCabin(stage, ui, laptop) {
 	let terminalAway = false;
 	const render = () => {
 		renderer.render(scene, camera);
+		placeLampShade();
 		if (terminalAway) return;
 		terminalCamera.position.copy(camera.position);
 		terminalCamera.quaternion.copy(camera.quaternion);
@@ -1592,6 +1658,7 @@ export async function startCabin(stage, ui, laptop) {
 		const picked = pick(event);
 		if (picked.prop === 'gravity') throwLever();
 		else if (picked.prop === 'plectrum') takePlectrum();
+		else if (picked.prop === 'lamp') switchLamp();
 		else if (picked.prop) ui.activate(picked.prop);
 	});
 
@@ -1605,6 +1672,7 @@ export async function startCabin(stage, ui, laptop) {
 	const grabbed = new Vector3();
 	const noVelocity = new Vector3();
 	let held = null;
+	const heldBox = new Box3();
 
 	// Capturing, so it's seen before the camera's controls, which never are.
 	canvas.addEventListener(
@@ -1639,6 +1707,9 @@ export async function startCabin(stage, ui, laptop) {
 		if (!raycaster.ray.intersectPlane(grabPlane, grabbed)) return;
 		thing.position.copy(grabbed).add(held.offset);
 		hitRoom(thing.position, noVelocity.set(0, 0, 0), radii.get(thing));
+		// Never under the desk: its lowest point no lower than the desk's top.
+		heldBox.setFromObject(thing);
+		if (heldBox.min.y < deskTop) thing.position.y += deskTop - heldBox.min.y;
 		const now = performance.now() / 1000;
 		held.trail.push([now, thing.position.clone()]);
 		while (held.trail.length > 2 && now - held.trail[0][0] > 0.1) held.trail.shift();
@@ -1668,6 +1739,7 @@ export async function startCabin(stage, ui, laptop) {
 		if (blobs.has(thing)) {
 			moves.delete(thing);
 			blobs.get(thing).velocity.copy(velocity);
+			blobs.get(thing).thrown = true;
 			requestRender();
 			return;
 		}
@@ -1777,6 +1849,8 @@ export async function startCabin(stage, ui, laptop) {
 		readCard,
 		tapeCrack,
 		squeeze,
+		waterPlant,
+		switchLamp,
 		leaking: () => leaking,
 		toggleGravity() {
 			throwLever();
