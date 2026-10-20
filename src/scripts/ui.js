@@ -152,7 +152,9 @@ export function initCabin(stage) {
 			say(mugLines[sips % mugLines.length]);
 			sips += 1;
 		},
+		// With the gravity off, a click tips a floating blob of water in (cabin.js).
 		plant() {
+			if (!gravityOn && window.cabin?.waterPlant()) return;
 			say("A snake plant. It's thriving on neglect.");
 		},
 		// The DO NOT LOSE case stays jammed shut until there's no gravity, and
@@ -179,8 +181,11 @@ export function initCabin(stage) {
 		// the light stays still, so the speaker shows them too.
 		speaker() {
 			const { ctx, effects } = withSound();
+			// Slower than the light, with the gaps between letters and after the
+			// word stretched (Farnsworth timing), so the letters stand apart.
 			const steps = JSON.parse(beacon.dataset.signal);
-			const unit = 0.12;
+			const unit = 0.2;
+			const gaps = { 3: 7, 7: 15 };
 			let when = ctx.currentTime + 0.1;
 			for (const [on, length] of steps) {
 				if (on) {
@@ -196,7 +201,7 @@ export function initCabin(stage) {
 					tone.start(when);
 					tone.stop(when + length * unit + 0.01);
 				}
-				when += length * unit;
+				when += (on ? length : (gaps[length] ?? length)) * unit;
 			}
 			if (matchMedia('(prefers-reduced-motion: reduce)').matches) say(`Recorded the light, in case it stops: ${beacon.dataset.recording}`);
 		},
@@ -212,6 +217,7 @@ export function initCabin(stage) {
 	// live scene can make things float.
 	function activate(prop) {
 		if (prop === 'gravity') return window.cabin?.toggleGravity();
+		if (prop === 'lamp') return window.cabin?.switchLamp();
 		// In the live scene, the camera goes up to the laptop's own screen.
 		if (prop === 'laptop' && window.cabin) return window.cabin.useLaptop();
 		// And straight up to the Morse card, to read it on the wall.
@@ -386,6 +392,13 @@ export function initCabin(stage) {
 		level.connect(ambience);
 		source.start();
 		whistling = { source, level };
+	}
+
+	// The desk lamp switched: a click, and the Tab menu says which way.
+	const lampButton = document.querySelector('.skip [data-prop="lamp"]');
+	function lamp(on) {
+		lampButton?.setAttribute('aria-pressed', String(on));
+		if (audio?.on) knock(audio.ctx.currentTime, 3200, 0.4);
 	}
 
 	// The lever thrown while manual gravity control is locked out: a clunk,
@@ -800,5 +813,5 @@ export function initCabin(stage) {
 		knock(audio.ctx.currentTime, 700 + Math.random() * 2000, Math.min(1.4, 0.3 + speed * 0.4));
 	}
 
-	return { activate, gravity, gravityRefused, bump, nowPlaying, say, theEnd };
+	return { activate, gravity, gravityRefused, bump, nowPlaying, say, theEnd, lamp };
 }
