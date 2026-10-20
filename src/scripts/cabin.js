@@ -18,9 +18,11 @@ import {
 	EquirectangularReflectionMapping,
 	Float32BufferAttribute,
 	Matrix4,
+	Mesh,
 	MeshBasicMaterial,
 	NoBlending,
 	Plane,
+	PlaneGeometry,
 	Points,
 	PointsMaterial,
 	Quaternion,
@@ -73,7 +75,17 @@ const FLIGHT_SECONDS = 0.8;
 // The passing ship: seconds to glide in and stop, to sink toward Saturn once
 // it's in trouble, and to climb away once it's saved. sink is how far it
 // goes toward Saturn; away is where it leaves to, from where it stopped.
-const SHIP = { arrive: 40, sinking: 240, climb: 30, sink: 0.12, away: [-6, 5, 0] };
+// burn is how hard its engines burn, 0 to 1, at each of those; sinking, they
+// are cold, and only its attitude thrusters puff, every puffs seconds or so.
+const SHIP = {
+	arrive: 40,
+	sinking: 240,
+	climb: 30,
+	sink: 0.12,
+	away: [-6, 5, 0],
+	burn: { arriving: 0.55, parked: 0.12, sinking: 0, climbing: 1 },
+	puffs: [1.2, 2.8],
+};
 
 // Looking around: the camera circles a point on the desk, and these limits
 // keep it inside the cabin, below the ceiling and above the desk. Zoom is far
@@ -278,9 +290,97 @@ export async function startCabin(stage, ui, laptop) {
 	const easeIn = (t) => t ** 3;
 	let leg = null;
 	let climbWaiting = false;
+
+	// Its engines: a plume behind each nozzle, and puffs from its attitude
+	// thrusters. Places are on the ship's card, from -0.5 to 0.5 across and
+	// down ship.webp; sizes are in metres. Plumes reach length metres at
+	// full burn, and flicker.
+	const cardSize = ship.scale.clone();
+	const NOZZLES = [
+		{ x: 0.403, z: 0.032, height: 0.24, length: 1.6 },
+		{ x: 0.453, z: 0.294, height: 0.2, length: 1.4 },
+	];
+	const THRUSTERS = [
+		{ x: -0.47, z: 0.08 },
+		{ x: 0.3, z: -0.44 },
+		{ x: 0.05, z: 0.46 },
+	];
+	const plumeTexture = (() => {
+		const picture = document.createElement('canvas');
+		picture.width = 256;
+		picture.height = 64;
+		const c = picture.getContext('2d');
+		// A cone of light: white-hot at the nozzle (the left edge), cooling
+		// to orange and fading behind.
+		c.translate(0, 32);
+		c.scale(1, 0.25);
+		const glow = c.createRadialGradient(0, 0, 0, 0, 0, 256);
+		glow.addColorStop(0, 'rgb(240 248 255 / 1)');
+		glow.addColorStop(0.12, 'rgb(160 205 255 / 0.9)');
+		glow.addColorStop(0.45, 'rgb(255 170 100 / 0.4)');
+		glow.addColorStop(1, 'rgb(255 120 60 / 0)');
+		c.fillStyle = glow;
+		c.fillRect(0, -128, 256, 256);
+		const texture = new CanvasTexture(picture);
+		texture.colorSpace = SRGBColorSpace;
+		return texture;
+	})();
+	// Flat on the card, facing the camera as it does, starting at its left edge.
+	const flat = new PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+	const plumeShape = flat.clone().translate(0.5, 0, 0);
+	const glowing = (map) => new MeshBasicMaterial({ map, transparent: true, depthWrite: false, blending: AdditiveBlending, toneMapped: false, opacity: 0 });
+	const plumes = NOZZLES.map((nozzle) => {
+		const plume = new Mesh(plumeShape, glowing(plumeTexture));
+		plume.position.set(nozzle.x, 0.002, nozzle.z);
+		plume.renderOrder = 1;
+		plume.userData = nozzle;
+		ship.add(plume);
+		return plume;
+	});
+	const thrustTexture = spot([
+		[0, 'rgb(240 245 255 / 0.9)'],
+		[0.5, 'rgb(220 230 245 / 0.35)'],
+		[1, 'rgb(220 230 245 / 0)'],
+	]);
+	const thrusts = THRUSTERS.map((thruster) => {
+		const puff = new Mesh(flat, glowing(thrustTexture));
+		puff.position.set(thruster.x, 0.003, thruster.z);
+		puff.renderOrder = 1;
+		puff.userData = { since: -Infinity };
+		ship.add(puff);
+		return puff;
+	});
+	let engines = 'parked';
+	let burn = 0;
+	let nextPuff = 0;
+	let lastBurn = 0;
+	function burnEngines(now) {
+		const seconds = Math.min(0.1, now - lastBurn);
+		lastBurn = now;
+		const target = SHIP.burn[engines];
+		burn = reduceMotion.matches ? target : burn + (target - burn) * (1 - Math.exp(-seconds * 1.5));
+		for (const plume of plumes) {
+			const { length, height } = plume.userData;
+			const flicker = reduceMotion.matches ? 1 : 1 + 0.1 * Math.sin(now * 37 + length * 9) + 0.06 * Math.sin(now * 61);
+			plume.scale.set((length * Math.max(burn, 0.05) * flicker) / cardSize.x, 1, height / cardSize.z);
+			plume.material.opacity = Math.min(1, burn * 1.6) * (reduceMotion.matches ? 1 : 0.9 + 0.1 * flicker);
+		}
+		if (engines === 'sinking' && !reduceMotion.matches && now > nextPuff) {
+			thrusts[Math.floor(Math.random() * thrusts.length)].userData.since = now;
+			nextPuff = now + SHIP.puffs[0] + Math.random() * (SHIP.puffs[1] - SHIP.puffs[0]);
+		}
+		for (const puff of thrusts) {
+			const age = (now - puff.userData.since) / 0.7;
+			const radius = 0.1 + 0.5 * Math.min(1, age);
+			puff.scale.set(radius / cardSize.x, 1, radius / cardSize.z);
+			puff.material.opacity = age < 1 ? 0.8 * (1 - age) : 0;
+		}
+	}
 	async function showShip(at) {
 		const picture = await new TextureLoader().loadAsync('/scene/ship.webp');
 		picture.colorSpace = SRGBColorSpace;
+		// The card's texture coordinates come from glTF, which doesn't flip images.
+		picture.flipY = false;
 		ship.material = new MeshBasicMaterial({ map: picture, transparent: true, depthWrite: false, toneMapped: false });
 		ship.position.copy(at);
 		ship.visible = true;
@@ -296,8 +396,10 @@ export async function startCabin(stage, ui, laptop) {
 		leg = { from: ship.position.clone(), to, start: performance.now() / 1000, seconds, ease, then };
 	}
 	function glideShip(now) {
+		if (ship.visible) burnEngines(now);
 		if (climbWaiting && !usingLaptop && !terminalAway) {
 			climbWaiting = false;
+			engines = 'climbing';
 			sail(shipGone, SHIP.climb, easeIn, () => (ship.visible = false));
 		}
 		if (!leg) return;
@@ -308,14 +410,20 @@ export async function startCabin(stage, ui, laptop) {
 		leg = null;
 		then?.();
 	}
-	if (progress.has('goat') && !progress.has('saved')) showShip(shipSunk);
-	else if (progress.has('song') && !progress.has('saved')) showShip(shipTo);
+	if (progress.has('goat') && !progress.has('saved')) {
+		engines = 'sinking';
+		showShip(shipSunk);
+	} else if (progress.has('song') && !progress.has('saved')) showShip(shipTo);
 	progress.listen(async (step) => {
 		if (step === 'song') {
 			await showShip(shipFrom);
-			sail(shipTo, SHIP.arrive, easeOut);
+			engines = 'arriving';
+			sail(shipTo, SHIP.arrive, easeOut, () => engines === 'arriving' && (engines = 'parked'));
 		}
-		if (step === 'goat') sail(shipSunk, SHIP.sinking, easeOut);
+		if (step === 'goat') {
+			engines = 'sinking';
+			sail(shipSunk, SHIP.sinking, easeOut);
+		}
 		if (step === 'saved') climbWaiting = true;
 	});
 

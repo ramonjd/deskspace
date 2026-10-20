@@ -34,7 +34,7 @@ The story: the administrator is a front-end developer who lost the job to AI and
    - Worth: Settings restores BACKUP 2009 with that password, bringing back the administrator's portfolio: the bezel.js docs and a post on units.
 3. Play C Em C Em in tune, and a ship's AI hears the only human voice out there. Its ship glides in and stops left of Saturn. Zoomed in from the window, its hull reads 715120; the registry takes four letters, and 7-15-1-20 is GOAT. Checking it shows the owner, GOAT Capital, and opens a channel: the AI is stuck between the investors' orders and the ship is sinking toward Saturn.
 4. The ship link on the laptop, in three steps: free the crew's manual controls from a bezel.js notice (HTML, with a live preview; press the button once it's free), fix the units in the flight code (JavaScript, run in the browser; pound-force seconds to newton-seconds), then choose what to jettison. Only the GPU racks work, and only a person can break the investors' order to keep them.
-5. The ship climbs away once you step back from the laptop. The phone can then call home.
+5. The ship climbs away once you step back from the laptop. Its engines tell the story: a steady burn as it glides in, a low idle when it stops, cold while it sinks (only its attitude thrusters puff), and a full burn as it climbs away. The phone can then call home.
 
 Each step is saved as you go (`progress.js`).
 
