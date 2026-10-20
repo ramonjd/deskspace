@@ -737,14 +737,54 @@ export function initCabin(stage) {
 	});
 	if (progress.has('panel')) showSynced();
 
-	// ------------------------------------------------------------ calling home
+	// ------------------------------------------------------------ the end
 
-	// Once the ship's safe, the phone can call home: the lines appear one by one.
+	// Once the ship's clear (cabin.js; at once without the live scene, where
+	// there's no climb to watch), GOAT's last message is on the laptop. Once
+	// it's been read, or a while after anyway, the phone buzzes: a voice
+	// message from Earth, sent over an hour ago, as light takes that long to
+	// get here. Its lines appear one by one. After it, GOAT comes back for you
+	// (cabin.js), and the end card shows.
 	const call = radioDialog.querySelector('.call');
-	const showCall = () => (call.hidden = !progress.has('saved'));
+	const showCall = () => (call.hidden = !progress.has('ringing'));
 	showCall();
-	progress.listen(showCall);
-	call.querySelector('.call-home').addEventListener('click', (event) => {
+	const withoutScene = (then) => setTimeout(() => window.cabin || then(), 3000);
+	function ring() {
+		if (progress.has('ringing')) return;
+		progress.mark('ringing');
+		say('Your phone buzzes: a voice message from Earth.');
+		if (!audio?.on) return;
+		const { ctx, effects } = audio;
+		for (const at of [0, 0.5, 1.6, 2.1]) {
+			const buzz = ctx.createOscillator();
+			buzz.type = 'square';
+			buzz.frequency.value = 150;
+			const level = ctx.createGain();
+			const when = ctx.currentTime + at;
+			level.gain.setValueAtTime(0.05, when);
+			level.gain.setValueAtTime(0, when + 0.35);
+			buzz.connect(level);
+			level.connect(effects);
+			buzz.start(when);
+			buzz.stop(when + 0.4);
+		}
+	}
+	function theEnd() {
+		document.getElementById('end-dialog').showModal();
+	}
+	progress.listen((step) => {
+		showCall();
+		if (step === 'saved') withoutScene(() => progress.mark('clear'));
+		if (step === 'clear') {
+			setTimeout(() => say('New message on the laptop.'), 1200);
+			setTimeout(ring, 45000);
+		}
+		if (step === 'read-ai-thanks') setTimeout(ring, 4000);
+		if (step === 'called') withoutScene(theEnd);
+	});
+	if (progress.has('saved') && !progress.has('clear')) withoutScene(() => progress.mark('clear'));
+	if (progress.has('clear') && !progress.has('ringing')) setTimeout(ring, progress.has('read-ai-thanks') ? 4000 : 45000);
+	call.querySelector('.call-play').addEventListener('click', (event) => {
 		event.currentTarget.disabled = true;
 		[...call.querySelectorAll('.call-lines p')].forEach((line, i) => {
 			setTimeout(() => {
@@ -760,5 +800,5 @@ export function initCabin(stage) {
 		knock(audio.ctx.currentTime, 700 + Math.random() * 2000, Math.min(1.4, 0.3 + speed * 0.4));
 	}
 
-	return { activate, gravity, gravityRefused, bump, nowPlaying, say };
+	return { activate, gravity, gravityRefused, bump, nowPlaying, say, theEnd };
 }

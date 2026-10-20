@@ -68,14 +68,16 @@ const VIEWS = {
 };
 const FLIGHT_SECONDS = 0.8;
 // The passing ship: seconds to glide in and stop, to sink toward Saturn once
-// it's in trouble, and to climb away once it's saved. sink is how far it
-// goes toward Saturn; away is where it leaves to, from where it stopped.
+// it's in trouble, to climb away once it's saved, and to come back for you
+// at the end. sink is how far it goes toward Saturn; away is where it leaves
+// to, from where it stopped.
 // burn is how hard its engines burn, 0 to 1, at each of those; sinking, they
 // are cold, and only its attitude thrusters puff, every puffs seconds or so.
 const SHIP = {
 	arrive: 40,
 	sinking: 240,
 	climb: 30,
+	back: 14,
 	sink: 0.12,
 	away: [-6, 5, 0],
 	burn: { arriving: 0.55, parked: 0.12, sinking: 0, climbing: 1 },
@@ -286,8 +288,9 @@ export async function startCabin(stage, ui, laptop) {
 	// of it. Its hull number is too small to read without zooming in from the
 	// window. Once its registration's been checked (laptop.js) it's in
 	// trouble, and sinks slowly toward Saturn. Once it's saved, it climbs away,
-	// starting when you're back from the laptop to watch. Its picture loads
-	// only when it comes.
+	// starting when you're back from the laptop to watch, and it's clear once
+	// it's gone. After the message from Earth (ui.js) it comes back for you
+	// and waits. Its picture loads only when it comes.
 	const ship = scene.getObjectByName('ship-card');
 	const shipFrom = scene.getObjectByName('ship-start').position.clone();
 	const shipTo = ship.position.clone();
@@ -477,13 +480,18 @@ export async function startCabin(stage, ui, laptop) {
 		}
 		leg = { from: ship.position.clone(), to, start: performance.now() / 1000, seconds, ease, then };
 	}
+	function climbIfWaiting() {
+		if (!climbWaiting || usingLaptop || terminalAway) return;
+		climbWaiting = false;
+		engines = 'climbing';
+		sail(shipGone, SHIP.climb, easeIn, () => {
+			ship.visible = false;
+			progress.mark('clear');
+		});
+	}
 	function glideShip(now) {
 		burnEngines(now);
-		if (climbWaiting && !usingLaptop && !terminalAway) {
-			climbWaiting = false;
-			engines = 'climbing';
-			sail(shipGone, SHIP.climb, easeIn, () => (ship.visible = false));
-		}
+		climbIfWaiting();
 		if (!leg) return;
 		const through = Math.min(1, (now - leg.start) / leg.seconds);
 		ship.position.lerpVectors(leg.from, leg.to, leg.ease(through));
@@ -496,6 +504,9 @@ export async function startCabin(stage, ui, laptop) {
 		engines = 'sinking';
 		showShip(shipSunk);
 	} else if (progress.has('song') && !progress.has('saved')) showShip(shipTo);
+	else if (progress.has('called')) showShip(shipTo);
+	// Saved on an earlier visit: it left then.
+	if (progress.has('saved') && !progress.has('clear')) progress.mark('clear');
 	progress.listen(async (step) => {
 		if (step === 'song') {
 			await showShip(shipFrom);
@@ -507,6 +518,14 @@ export async function startCabin(stage, ui, laptop) {
 			sail(shipSunk, SHIP.sinking, easeOut);
 		}
 		if (step === 'saved') climbWaiting = true;
+		if (step === 'called') {
+			await showShip(shipGone);
+			engines = 'arriving';
+			sail(shipTo, SHIP.back, easeOut, () => {
+				engines = 'parked';
+				ui.theEnd();
+			});
+		}
 	});
 
 	// ------------------------------------------------------------ the phone's screen
@@ -1901,6 +1920,7 @@ export async function startCabin(stage, ui, laptop) {
 					terminalAway = false;
 					os.inert = true;
 					render();
+					climbIfWaiting();
 				},
 				{ once: true },
 			);
@@ -1918,6 +1938,8 @@ export async function startCabin(stage, ui, laptop) {
 		delete stage.dataset.laptop;
 		os.inert = true;
 		api.flyHome();
+		// With reduced motion nothing ticks, so the ship leaves from here.
+		climbIfWaiting();
 	}
 	back.addEventListener('click', leaveLaptop);
 	document.addEventListener('keydown', (event) => event.key === 'Escape' && leaveLaptop());

@@ -930,17 +930,31 @@ const signalStyle = `<style>
 					<input type="range" min="0" max="1" step="0.01" value="0.6" />
 				</label>
 				<p class="muted">With the headphones on the hook, the music leaks out of them, muffled.</p>
-				<!-- The end: once the ship's safe (ui.js). Lines appear one by one. -->
+				<!-- The end: a voice message from Earth, once the ship's clear (ui.js).
+				     Lines appear one by one. -->
 				<div class="call" hidden>
-					<p><button class="chip call-home" type="button">Call home</button></p>
+					<p><button class="chip call-play" type="button">Play the message from Earth</button></p>
 					<div class="call-lines" aria-live="polite">
-						<p class="muted" hidden>Calling Home…</p>
-						<p hidden>Mum: Love! Is that you? The news is all about a ship near Saturn. Some administrator talked it out of the rings. A whole ship of AI investors.</p>
-						<p hidden>Mum: They said it was fixed with a web page. I said, that'll be mine. Always good with computers.</p>
-						<p hidden>Mum: Come home when you can. Barry's funeral was lovely. They played Bowie.</p>
-						<p class="muted" hidden>The end. Thanks for playing.</p>
+						<p class="muted" hidden>Voice message from Earth. Sent 1 hour 19 minutes ago: the time light takes to get here.</p>
+						<p hidden>Dana: Hi, it's Dana, from Brightline. Long time. We heard about your work with GOAT. Everyone has. That was you, wasn't it?</p>
+						<p hidden>Dana: We'd like to give you your old job back, with a significant pay rise, and your own residence in Block 2001.</p>
+						<p hidden>Dana: One condition: you're back on Earth before Tuesday. Call us when you land.</p>
+						<p hidden>GOAT, on the open channel: I heard that. We're going your way, Administrator. There's a bunk in the old GPU bay.</p>
 					</div>
 				</div>
+			</div>
+		</dialog>
+
+		<!-- Once GOAT has come back for you (cabin.js, or straight away without the live scene). -->
+		<dialog class="panel" id="end-dialog" aria-labelledby="end-title">
+			<header>
+				<h2 id="end-title">End of part one</h2>
+				<form method="dialog"><button class="close">Close</button></form>
+			</header>
+			<div class="body">
+				<p>GOAT is waiting outside the window, engines ticking over. Earth is 1.4 billion kilometres away, and it's Tuesday or nothing.</p>
+				<p>Next stop: Jupiter.</p>
+				<p class="muted">Thanks for playing DeskSpace.</p>
 			</div>
 		</dialog>
 
