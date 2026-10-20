@@ -114,10 +114,9 @@ export function initCabin(stage) {
 	}
 
 	// In the live scene these panels sit in a corner instead of blocking the
-	// view, so you can keep looking around, watch the light in the window
-	// while reading the Morse card, and see the phone's screen while the radio
-	// plays. Escape still closes them.
-	const SIDE_PANELS = new Set(['window', 'morse', 'phone', 'panel']);
+	// view, so you can keep looking around and see the phone's screen while
+	// the radio plays. Escape still closes them.
+	const SIDE_PANELS = new Set(['phone', 'panel']);
 
 	async function openDialog(prop, id) {
 		const dialog = document.getElementById(id);
@@ -142,6 +141,7 @@ export function initCabin(stage) {
 	];
 	let sips = 0;
 	let headphonesOn = false;
+	const beacon = document.querySelector('.beacon[data-signal]');
 
 	const actions = {
 		// A line of its own, from the hotspot's data-say.
@@ -155,9 +155,50 @@ export function initCabin(stage) {
 		plant() {
 			say("A snake plant. It's thriving on neglect.");
 		},
-		// The DO NOT LOSE case stays jammed shut until there's no gravity.
+		// The DO NOT LOSE case stays jammed shut until there's no gravity, and
+		// then the leak takes it until it's caught (cabin.js).
 		discs(hotspot) {
-			say(gravityOn ? hotspot.dataset.say : hotspot.dataset.floating);
+			if (gravityOn) return say(hotspot.dataset.say);
+			say(window.cabin?.leaking() ? 'DO NOT LOSE is drifting off toward the crack in the window. Grab it!' : hotspot.dataset.floating);
+		},
+		// Taping the crack stops the leak, for good.
+		crack() {
+			if (progress.has('taped')) return say("Taped. It'll hold. Probably.");
+			progress.mark('taped');
+			whistle(false);
+			window.cabin?.tapeCrack();
+			say('You find the gaffer tape in the drawer and tape over the crack. The whistling stops.');
+		},
+		// Squeezed with the gravity off, the pouch lets out blobs of water (cabin.js).
+		pouch() {
+			if (!gravityOn && window.cabin) return window.cabin.squeeze();
+			say('A water pouch. Squeezed with the gravity on, it would just make a puddle.');
+		},
+		// The speaker on the glass beeps along with the light outside: its dots
+		// and dashes, for anyone who can't watch it blink. With reduced motion
+		// the light stays still, so the speaker shows them too.
+		speaker() {
+			const { ctx, effects } = withSound();
+			const steps = JSON.parse(beacon.dataset.signal);
+			const unit = 0.12;
+			let when = ctx.currentTime + 0.1;
+			for (const [on, length] of steps) {
+				if (on) {
+					const tone = ctx.createOscillator();
+					tone.frequency.value = 620;
+					const level = ctx.createGain();
+					level.gain.setValueAtTime(0, when);
+					level.gain.linearRampToValueAtTime(0.25, when + 0.005);
+					level.gain.setValueAtTime(0.25, when + length * unit - 0.005);
+					level.gain.linearRampToValueAtTime(0, when + length * unit);
+					tone.connect(level);
+					level.connect(effects);
+					tone.start(when);
+					tone.stop(when + length * unit + 0.01);
+				}
+				when += length * unit;
+			}
+			if (matchMedia('(prefers-reduced-motion: reduce)').matches) say(`Recorded the light, in case it stops: ${beacon.dataset.recording}`);
 		},
 		headphones() {
 			setHeadphones(!headphonesOn);
@@ -173,6 +214,8 @@ export function initCabin(stage) {
 		if (prop === 'gravity') return window.cabin?.toggleGravity();
 		// In the live scene, the camera goes up to the laptop's own screen.
 		if (prop === 'laptop' && window.cabin) return window.cabin.useLaptop();
+		// And straight up to the Morse card, to read it on the wall.
+		if (prop === 'morse' && window.cabin) return window.cabin.readCard();
 		const hotspot = document.querySelector(`.hotspot[data-prop="${prop}"]`);
 		if (!hotspot) return;
 		const { dialog, action } = hotspot.dataset;
@@ -301,12 +344,48 @@ export function initCabin(stage) {
 	function gravity(on, landings = []) {
 		gravityOn = on;
 		gravityButton?.setAttribute('aria-pressed', String(on));
-		say(on ? 'Gravity on.' : 'Gravity off. Grab something and throw it.');
+		const leaking = !on && !progress.has('taped');
+		say(on ? 'Gravity on.' : leaking ? 'Gravity off. Something by the window has started whistling.' : 'Gravity off. Grab something and throw it.');
+		whistle(leaking);
 		if (!audio) return;
 		setGenerator(on);
 		if (!audio.on) return;
 		const now = clunk();
 		for (const seconds of landings) knock(now + seconds, 1200 + Math.random() * 2500, 0.6 + Math.random() * 0.8);
+	}
+
+	// The crack in the window, while it leaks: a thin whistle of air, looped
+	// noise through a narrow band.
+	let whistling = null;
+	function whistle(on) {
+		if (!on) {
+			if (!whistling) return;
+			const { ctx } = audio;
+			whistling.level.gain.setTargetAtTime(0, ctx.currentTime, 0.2);
+			whistling.source.stop(ctx.currentTime + 1);
+			whistling = null;
+			return;
+		}
+		if (!audio || whistling) return;
+		const { ctx, ambience } = audio;
+		const noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+		const data = noise.getChannelData(0);
+		for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+		const source = ctx.createBufferSource();
+		source.buffer = noise;
+		source.loop = true;
+		const band = ctx.createBiquadFilter();
+		band.type = 'bandpass';
+		band.frequency.value = 2400;
+		band.Q.value = 8;
+		const level = ctx.createGain();
+		level.gain.value = 0;
+		level.gain.setTargetAtTime(0.5, ctx.currentTime, 0.5);
+		source.connect(band);
+		band.connect(level);
+		level.connect(ambience);
+		source.start();
+		whistling = { source, level };
 	}
 
 	// The lever thrown while manual gravity control is locked out: a clunk,
@@ -657,35 +736,6 @@ export function initCabin(stage) {
 		}
 	});
 	if (progress.has('panel')) showSynced();
-
-	// ------------------------------------------------------------ the light in the window
-
-	const windowDialog = document.getElementById('window-dialog');
-
-	// The same pattern as the light, as beeps: dots and dashes for anyone who
-	// can't watch it blink.
-	windowDialog.querySelector('.replay').addEventListener('click', (event) => {
-		const { ctx, effects } = withSound();
-		const steps = JSON.parse(event.currentTarget.dataset.signal);
-		const unit = 0.12;
-		let when = ctx.currentTime + 0.1;
-		for (const [on, length] of steps) {
-			if (on) {
-				const tone = ctx.createOscillator();
-				tone.frequency.value = 620;
-				const level = ctx.createGain();
-				level.gain.setValueAtTime(0, when);
-				level.gain.linearRampToValueAtTime(0.25, when + 0.005);
-				level.gain.setValueAtTime(0.25, when + length * unit - 0.005);
-				level.gain.linearRampToValueAtTime(0, when + length * unit);
-				tone.connect(level);
-				level.connect(effects);
-				tone.start(when);
-				tone.stop(when + length * unit + 0.01);
-			}
-			when += length * unit;
-		}
-	});
 
 	// ------------------------------------------------------------ calling home
 

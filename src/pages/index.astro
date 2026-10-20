@@ -17,7 +17,7 @@ const edge = ({ left, width }) => (left + width / 2 < 20 ? 'start' : left + widt
 const props = [
 	{ id: 'laptop', label: 'Laptop', dialog: 'laptop-dialog' },
 	{ id: 'panel', label: 'Control panel', dialog: 'panel-dialog' },
-	{ id: 'window', label: 'The window: where we are', dialog: 'window-dialog', below: true },
+	{ id: 'speaker', label: 'Speaker', action: 'speaker' },
 	{ id: 'headphones', label: 'Headphones', action: 'headphones', below: true },
 	{ id: 'guitar', label: 'Guitar: play it', dialog: 'guitar-dialog', below: true },
 	{ id: 'phone', label: 'Phone: radio', dialog: 'radio-dialog' },
@@ -36,7 +36,16 @@ const props = [
 	},
 	{ id: 'sanitiser', label: 'Hand sanitiser', say: 'Kills 99.9% of germs. Out here there were none to begin with.' },
 	{ id: 'pens', label: 'Pens', say: 'Five pens, a pencil and a marker. Two of the pens work.' },
-	{ id: 'notes', label: 'Post-it notes', say: 'Reminders. Most of them overdue.' },
+	// The post-its along the window frame (scene/cabin.py), each with a line,
+	// most of them a nudge toward something.
+	{ id: 'note-0', label: 'Post-it: backups!!', say: 'Two exclamation marks. The discs on the desk are the backups.' },
+	{ id: 'note-1', label: 'Post-it: buy coffee', say: "The galley's closed until Tuesday. Make the mug last." },
+	{ id: 'note-2', label: 'Post-it: water the plant', say: 'Overdue. There is a water pouch on the desk, but in gravity it only makes puddles.' },
+	{ id: 'note-3', label: 'Post-it: tune the G string', say: "It slips flat out here. The tuner's in the guitar's panel." },
+	{ id: 'note-4', label: 'Post-it: call home', say: "Mum keeps asking. Soon, when there's something to tell her." },
+	{ id: 'note-5', label: 'Post-it: fix the crack', say: 'The arrow points at the crack in the glass.' },
+	{ id: 'crack', label: 'Crack in the glass', action: 'crack' },
+	{ id: 'pouch', label: 'Water pouch', action: 'pouch' },
 ];
 
 // The light outside the window blinks the laptop's password in Morse, with
@@ -126,15 +135,35 @@ const signalStyle = `<style>
 				top: calc((100cqh - var(--h)) * 0.6);
 				transition: opacity 0.25s;
 			}
-			/* Darker towards the edges, like an old lens. */
+			/* Darker towards the edges, like an old lens, and grainy, like a
+			   camera in low light: noise that shifts a few times a second, and
+			   holds still with reduced motion. */
 			.vignette,
+			.grain,
 			.dim {
 				position: absolute;
 				inset: 0;
 				pointer-events: none;
 			}
 			.vignette {
-				background: radial-gradient(ellipse 75% 80% at 48% 52%, transparent 55%, rgb(12 7 4 / 0.5) 100%);
+				background: radial-gradient(ellipse 75% 80% at 48% 52%, transparent 45%, rgb(8 6 5 / 0.65) 100%);
+			}
+			.grain {
+				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+				mix-blend-mode: overlay;
+				opacity: 0.16;
+				animation: grain 0.5s steps(1) infinite;
+			}
+			@keyframes grain {
+				0% { background-position: 0 0; }
+				25% { background-position: -61px 37px; }
+				50% { background-position: 43px -89px; }
+				75% { background-position: -97px -23px; }
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.grain {
+					animation: none;
+				}
 			}
 			/* The room darkening round the bare bulb when cabin.js makes it
 			   flicker. At most 9% darker, so it stays well under the 10%
@@ -277,16 +306,18 @@ const signalStyle = `<style>
 			.stage[data-laptop] :global(.os-layer .os) {
 				pointer-events: auto;
 			}
-			/* Using the laptop in the live scene: its screen takes the pointer
-			   (see cabin.js), and this button steps back. */
-			.laptop-back {
+			/* Using the laptop or reading the Morse card in the live scene: the
+			   laptop's screen takes the pointer (see cabin.js), and this button
+			   steps back. */
+			.step-back {
 				position: absolute;
 				top: 16px;
 				left: 16px;
 				z-index: 6;
 				display: none;
 			}
-			.stage[data-laptop] .laptop-back {
+			.stage[data-laptop] .step-back,
+			.stage[data-card] .step-back {
 				display: inline-flex;
 			}
 			/* In the live scene, zoom buttons (see cabin.js). */
@@ -525,45 +556,30 @@ const signalStyle = `<style>
 				box-shadow: 0 30px 80px rgb(0 0 0 / 0.5);
 				font-family: var(--font-atkinson), system-ui, sans-serif;
 			}
+			/* The header stays put and the body scrolls within whatever height the
+			   dialog is allowed, as a modal or as a side panel. */
+			dialog.panel[open] {
+				display: flex;
+				flex-direction: column;
+			}
 			dialog.panel::backdrop {
 				background: rgb(10 8 6 / 0.35);
 			}
 			/* On wide screens, keep the dialog off the thing it's about: the
-			   guitar and the phone are on the right, the light is in the
-			   window's top left. */
+			   guitar and the phone are on the right. */
 			@media (min-width: 900px) {
 				dialog#guitar-dialog,
 				dialog#radio-dialog {
 					margin: auto auto auto 6vw;
 				}
-				dialog#window-dialog {
-					margin: auto 4vw auto auto;
-				}
 			}
-			/* In the live scene the window and Morse panels sit in opposite
-			   corners rather than as modals, so you can keep looking around (and
-			   watch the light while reading the card). */
-			dialog#morse-dialog:not(:modal) {
-				position: fixed;
-				inset: auto auto 16px 16px;
-				z-index: 5;
-				width: min(92vw, 24rem);
-				max-height: min(70vh, 40rem);
-				margin: 0;
-			}
+			/* In the live scene the radio sits in a corner rather than as a modal,
+			   so you can keep looking around. */
 			dialog#radio-dialog:not(:modal) {
 				position: fixed;
 				inset: auto auto 16px 16px;
 				z-index: 5;
 				width: min(92vw, 22rem);
-				max-height: min(70vh, 40rem);
-				margin: 0;
-			}
-			dialog#window-dialog:not(:modal) {
-				position: fixed;
-				inset: auto 16px 16px auto;
-				z-index: 5;
-				width: min(92vw, 26rem);
 				max-height: min(70vh, 40rem);
 				margin: 0;
 			}
@@ -579,9 +595,9 @@ const signalStyle = `<style>
 				font-size: 1.25rem;
 			}
 			.panel .body {
+				min-height: 0;
 				padding: 0 1.25rem 1.25rem;
 				overflow: auto;
-				max-height: calc(86vh - 4rem);
 			}
 			.panel .body > :first-child {
 				margin-top: 0.25rem;
@@ -621,32 +637,6 @@ const signalStyle = `<style>
 			.panel .muted {
 				color: rgb(239 228 212 / 0.65);
 				font-size: 0.9em;
-			}
-			.panel h3 {
-				margin: 1.25em 0 0.4em;
-				color: #ffb877;
-				font-size: 0.85rem;
-				letter-spacing: 0.12em;
-				text-transform: uppercase;
-			}
-			.panel .log {
-				margin: 0;
-				padding-left: 1.1em;
-			}
-			.panel .log li {
-				margin: 0.35em 0;
-			}
-			.panel .log code {
-				color: #ffe2b0;
-				background: none;
-			}
-			.reduced-motion-only {
-				display: none;
-			}
-			@media (prefers-reduced-motion: reduce) {
-				.reduced-motion-only {
-					display: list-item;
-				}
 			}
 
 			/* The control panel under the desk: four buttons to play back the
@@ -789,11 +779,6 @@ const signalStyle = `<style>
 				flex-wrap: wrap;
 				gap: 0.5em;
 			}
-			.panel .window-actions {
-				display: flex;
-				flex-wrap: wrap;
-				gap: 0.5em;
-			}
 			.morse-table {
 				display: grid;
 				grid-template-columns: repeat(3, 1fr);
@@ -826,7 +811,7 @@ const signalStyle = `<style>
 				<li><button type="button" data-prop="panel" data-dialog="panel-dialog">Control panel</button></li>
 				<li><button type="button" data-prop="phone" data-dialog="radio-dialog">Radio</button></li>
 				<li><button type="button" data-prop="guitar" data-dialog="guitar-dialog">Guitar</button></li>
-				<li><button type="button" data-prop="window" data-dialog="window-dialog">The window</button></li>
+				<li><button type="button" data-prop="speaker" data-action="speaker">Speaker</button></li>
 				<li><button type="button" data-prop="headphones" data-action="headphones">Headphones</button></li>
 				<li><button type="button" data-prop="morse" data-dialog="morse-dialog">Morse card</button></li>
 				<li class="live-only"><button type="button" data-prop="gravity" aria-pressed="true">Gravity</button></li>
@@ -843,7 +828,12 @@ const signalStyle = `<style>
 			/>
 			<canvas class="live" aria-hidden="true"></canvas>
 			<div class="layer">
-				<span class="beacon" style={`left:${hotspots.beacon.left}%;top:${hotspots.beacon.top}%`}></span>
+				<span
+					class="beacon"
+					style={`left:${hotspots.beacon.left}%;top:${hotspots.beacon.top}%`}
+					data-signal={JSON.stringify(steps)}
+					data-recording={[...SIGNAL].map((letter) => MORSE[letter]).join(' ')}
+				></span>
 				{
 					props.map((prop) => (
 						<button
@@ -862,6 +852,7 @@ const signalStyle = `<style>
 				}
 			</div>
 			<div class="vignette" aria-hidden="true"></div>
+			<div class="grain" aria-hidden="true"></div>
 			<div class="dim" aria-hidden="true"></div>
 			<!-- Waking up while the live scene loads (the script below). -->
 			<div class="wake" aria-hidden="true">
@@ -874,14 +865,14 @@ const signalStyle = `<style>
 			<div class="controls">
 				<button type="button" class="pill dock" data-prop="phone" data-dialog="radio-dialog">Radio</button>
 				<button type="button" class="pill dock" data-prop="guitar" data-dialog="guitar-dialog">Guitar</button>
-				<button type="button" class="pill dock" data-prop="window" data-dialog="window-dialog">Window</button>
+				<button type="button" class="pill dock" data-prop="speaker" data-action="speaker">Speaker</button>
 				<button type="button" class="pill dock" data-prop="headphones" data-action="headphones">Headphones</button>
 				<button type="button" class="pill sound" aria-pressed="false">
 					<span aria-hidden="true">♪</span>
 					<span class="sound-label">Sound off</span>
 				</button>
 			</div>
-			<button type="button" class="pill laptop-back">‹ Step back (Esc)</button>
+			<button type="button" class="pill step-back">‹ Step back (Esc)</button>
 			<div class="zoom" role="group" aria-label="Zoom">
 				<button type="button" class="pill" data-zoom="in" aria-label="Zoom in">+</button>
 				<button type="button" class="pill" data-zoom="out" aria-label="Zoom out">−</button>
@@ -895,50 +886,6 @@ const signalStyle = `<style>
 		<dialog class="laptop" id="laptop-dialog" aria-label="Laptop">
 			<form method="dialog"><button class="pill close">Close</button></form>
 			<Laptop />
-		</dialog>
-
-		<dialog class="panel" id="window-dialog" aria-labelledby="window-title">
-			<header>
-				<h2 id="window-title">Where we are</h2>
-				<form method="dialog"><button class="close">Close</button></form>
-			</header>
-			<div class="body">
-				<p>
-					Parked off Saturn. The numbers are NASA's: Saturn is 60,268 km from its centre to its cloud
-					tops at the equator, but only 54,364 km to the poles. It spins so fast it bulges.
-				</p>
-				<p>
-					The bright rings reach 136,780 km from the centre. The dark stripe across them is the
-					Cassini Division, a gap of nearly 5,000 km between the B and A rings.
-				</p>
-				<p>
-					Sunlight here is about 1% as strong as at home: 14.82 watts per square metre, against
-					1,361 at Earth. The small dots near the rings are moons. Saturn has 274 confirmed, and
-					the six biggest are out there at their real distances.
-				</p>
-				<h3>Ship's log</h3>
-				<ul class="log">
-					<li>Parked. The view is ridiculous.</li>
-					<li>The guitar stays in tune out here. I don't trust it.</li>
-					<li>
-						Registry wants a new password every shift, and I never remember them. Rigged the relay
-						beacon out past the rings, up and to the left, to remind me. Written in the stars.
-					</li>
-					<li class="reduced-motion-only">
-						Recorded the light, in case it stops: <code>{[...SIGNAL].map((letter) => MORSE[letter]).join(' ')}</code>
-					</li>
-				</ul>
-				<p class="window-actions">
-					<button
-						class="chip replay"
-						type="button"
-						data-signal={JSON.stringify(steps)}
-					>
-						Play the light as sound
-					</button>
-					<button class="chip" type="button" data-prop="morse" data-dialog="morse-dialog">Morse card</button>
-				</p>
-			</div>
 		</dialog>
 
 		<dialog class="panel morse" id="morse-dialog" aria-labelledby="morse-title">

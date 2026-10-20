@@ -752,9 +752,16 @@ def distance_from(center, near, far):
 	return build
 
 
+# The walls: old paint gone the grey-beige of years of recycled air, streaked
+# with grime, and rust run down the back wall from under the viewport.
+RUST_RUN = (0.16, 0.07, 0.03)
 cream = material(
-	"cream-panel", (0.86, 0.79, 0.67), rough=0.55, photo="PaintedMetal012", photo_size=2.7, photo_bump=0.25, grime=0.4, dirt=0.5,
-	pattern=layers(grid(1.5, 0.012, (0.3, 0.27, 0.22), axes=("X", "Y", "Z")), scorch(OUTLET[0] + 0.33, OUTLET[1], 0.2)),
+	"cream-panel", (0.56, 0.53, 0.46), rough=0.55, photo="PaintedMetal012", photo_size=2.7, photo_bump=0.25, grime=0.85, dirt=0.8,
+	pattern=layers(
+		grid(1.5, 0.012, (0.3, 0.27, 0.22), axes=("X", "Y", "Z")),
+		scorch(OUTLET[0] + 0.33, OUTLET[1], 0.2),
+		*[drip(x, WALL_Y - 0.05, 1.74, length, RUST_RUN) for x, length in ((-2.05, 0.5), (-0.95, 0.35), (-0.15, 0.25), (1.35, 0.45), (2.3, 0.55))],
+	),
 )
 charcoal = material("charcoal", (0.3, 0.3, 0.32), rough=0.6, photo="DiamondPlate009", photo_size=0.8, photo_bump=0.6, grime=0.3, dust=0.2, dirt=0.4)
 rib = material("rib", (0.28, 0.28, 0.3), rough=0.45, photo="Metal038", photo_size=0.9, photo_bump=0.15, scratches=0.15, grime=0.25, dirt=0.35)
@@ -1038,6 +1045,35 @@ stencil("stencil-life", "LIFE SUPPORT", (4.675, -2.6, 3.35), (-1, 0, 0), 0.16, r
 # In paint of its own, not the wall's, so the bake can give its letters more room (island_scale).
 stencil_paint = material("stencil-cream", (0.86, 0.79, 0.67), rough=0.55, photo="PaintedMetal012", photo_size=2.7, photo_bump=0.25, grime=0.4, dirt=0.5)
 stencil("stencil-viewport", "VIEWPORT 1", (1.5, 1.774, WINDOW["z"] - 1.12), (0, -1, 0), 0.075, stencil_paint)
+
+# Services run in the open, either side of the viewport, in front of the
+# ribs. Left, a painted pipe up from the wall at desk height to the ceiling,
+# flanged, bracketed and with a valve wheel; right, two conduits clipped to
+# the wall, through a junction box.
+pipe_paint = material("pipe-paint", (0.17, 0.2, 0.16), rough=0.5, photo="PaintedMetal012", photo_size=0.8, scratches=0.25, grime=0.6, dirt=0.6)
+conduit_grey = material("conduit", (0.33, 0.33, 0.34), rough=0.5, scratches=0.15, grime=0.45, dirt=0.5)
+PIPE = Vector((-2.54, 1.72, 0))
+cylinder("pipe-left", PIPE + Vector((0, 0, 3.15)), 0.05, 3.7, pipe_paint, vertices=24)
+cylinder("pipe-left-elbow", PIPE + Vector((0, 0.14, 1.3)), 0.05, 0.28, pipe_paint, rotation=(90, 0, 0), vertices=24)
+for i, z in enumerate((1.9, 3.1, 4.3)):
+	cylinder(f"pipe-left-flange-{i}", PIPE + Vector((0, 0, z)), 0.066, 0.04, pipe_paint, bevel=0.005, vertices=24)
+	box(f"pipe-left-bracket-{i}", PIPE + Vector((0, 0.15, z + 0.35)), (0.04, 0.26, 0.03), rib, bevel=0.005)
+VALVE = PIPE + Vector((0, -0.12, 2.55))
+valve_red = material("valve-red", (0.55, 0.06, 0.04), rough=0.45, scratches=0.3, grime=0.3)
+cylinder("pipe-valve-stem", PIPE + Vector((0, -0.07, 2.55)), 0.012, 0.11, steel, rotation=(90, 0, 0), vertices=12)
+bpy.ops.mesh.primitive_torus_add(major_radius=0.085, minor_radius=0.011, major_segments=32, minor_segments=8, location=VALVE, rotation=(math.pi / 2, 0, 0))
+wheel = bpy.context.object
+wheel.name = "pipe-valve-wheel"
+finish(wheel, valve_red, smooth=40)
+for i in range(3):
+	box(f"pipe-valve-spoke-{i}", VALVE, (0.17, 0.012, 0.012), valve_red, rotation=(0, 60 * i, 0))
+CONDUIT_X = 2.54
+for i, (dx, radius) in enumerate(((-0.04, 0.022), (0.04, 0.018))):
+	cylinder(f"conduit-{i}", (CONDUIT_X + dx, 1.75, 3.05), radius, 3.9, conduit_grey, vertices=16)
+for i, z in enumerate((1.5, 2.9, 3.7, 4.5)):
+	box(f"conduit-clip-{i}", (CONDUIT_X, 1.765, z), (0.14, 0.03, 0.025), rib, bevel=0.004)
+box("conduit-box", (CONDUIT_X, 1.72, 2.2), (0.16, 0.07, 0.22), conduit_grey, bevel=0.01)
+box("conduit-box-label", (CONDUIT_X, 1.684, 2.23), (0.1, 0.002, 0.06), hazard_paint)
 box("vent-panel", (-4.68, -2.2, 2.55), (0.03, 0.9, 0.6), rib, bevel=0.01)
 for i in range(7):
 	box(f"vent-slat-{i}", (-4.66, -2.2, 2.33 + 0.072 * i), (0.03, 0.8, 0.03), charcoal, rotation=(30, 0, 0))
@@ -1256,6 +1292,35 @@ hub.name = "disc-hub"
 finish(hub, material("disc-hub", (0.6, 0.62, 0.65), rough=0.3))
 stencil("disc-loose-label", "BACKUP 09", (-2.45, 1.40, DESK_Z + 0.0095), (0, 0, 1), 0.045, marker_ink, typeface=marker, spin=12)
 
+# A stack of books under the lamp, spines turned to the chair. Each is two
+# boards and a spine round a block of pages. They have their own random, so
+# the rest of the clutter lands where it always has.
+book_ink = {"dark": material("book-ink-dark", (0.02, 0.02, 0.025), rough=0.6), "light": material("book-ink-light", (0.85, 0.8, 0.68), rough=0.6)}
+BOOKS = [
+	# title, (length, depth, thickness), cover colour, ink, lettering size
+	("Javascript for space sickness", (0.72, 0.5, 0.11), (0.8, 0.62, 0.08), "dark", 0.046),
+	("CSS2001: a spacing odyssey", (0.66, 0.46, 0.085), (0.42, 0.09, 0.05), "light", 0.042),
+	("Node.JS relativity", (0.6, 0.42, 0.075), (0.16, 0.36, 0.14), "light", 0.04),
+]
+shelf = random.Random(2001)
+stack_at = Vector((-3.35, 0.78, DESK_Z))
+for i, (title, (length, depth, thick), colour, ink, size) in enumerate(BOOKS):
+	turn = 22 + shelf.uniform(-5, 5)
+	facing = Matrix.Rotation(math.radians(turn), 3, "Z")
+	at = stack_at + Vector((shelf.uniform(-0.03, 0.03), shelf.uniform(-0.03, 0.03), thick / 2))
+	stack_at.z += thick
+	board = 0.012
+	cloth = material(f"book-cover-{i}", colour, rough=0.75, photo="Fabric061", photo_size=0.4, photo_bump=0.2, dirt=0.3)
+	for part, centre, dims, mat in (
+		("bottom", (0, board / 2, -thick / 2 + board / 2), (length, depth - board, board), cloth),
+		("top", (0, board / 2, thick / 2 - board / 2), (length, depth - board, board), cloth),
+		("spine", (0, -depth / 2 + board / 2, 0), (length, board, thick), cloth),
+		("pages", (0, 0, 0), (length - 0.024, depth - board - 0.012, thick - 2 * board), bpy.data.materials["pages"]),
+	):
+		box(f"book-{i}-{part}", at + facing @ Vector(centre), dims, mat, rotation=(0, 0, turn), bevel=0.004)
+	words = stencil(f"book-{i}-title", title, at + facing @ Vector((0, -depth / 2 - 0.0005, 0)), facing @ Vector((0, -1, 0)), size, book_ink[ink], typeface=anton)
+	assert words.dimensions.x < length - 0.06, f"{title!r} is too long for its spine"
+
 # Hand sanitiser.
 gel = material("sanitiser-gel", (0.55, 0.8, 0.85), rough=0.15, photo="Plastic013A", photo_size=0.4, prints=0.25)
 pump_white = material("sanitiser-pump", (1.2, 1.2, 1.2), rough=0.35, photo="Plastic013A", photo_size=0.4, dirt=0.2)
@@ -1266,6 +1331,16 @@ stencil("sanitiser-words", "HAND\nSANITISER", bottle + Vector((0, -0.089, 0.17))
 cylinder("sanitiser-neck", bottle + Vector((0, 0, 0.405)), 0.035, 0.05, pump_white)
 cylinder("sanitiser-pump", bottle + Vector((0, 0, 0.45)), 0.022, 0.05, pump_white)
 box("sanitiser-nozzle", bottle + Vector((0, -0.04, 0.475)), (0.045, 0.11, 0.035), pump_white, bevel=0.01)
+
+# A water pouch for the plant: a foil drink pouch with a screw cap. With the
+# gravity off it floats, and squeezing it lets out blobs of water (cabin.js).
+POUCH = Vector((2.25, 0.1, DESK_Z))
+POUCH_TURN = 25
+pouch_facing = Matrix.Rotation(math.radians(POUCH_TURN), 3, "Z")
+box("pouch", POUCH + Vector((0, 0, 0.03)), (0.3, 0.2, 0.05), material("pouch-foil", (0.5, 0.68, 0.82), rough=0.3, metal=0.4, scratches=0.15, prints=0.2), rotation=(0, 0, POUCH_TURN), bevel=0.022)
+cylinder("pouch-spout", POUCH + pouch_facing @ Vector((0.17, 0, 0.03)), 0.022, 0.05, material("pouch-spout", (0.85, 0.85, 0.82), rough=0.4), rotation=(0, 90, POUCH_TURN))
+cylinder("pouch-cap", POUCH + pouch_facing @ Vector((0.205, 0, 0.03)), 0.03, 0.03, material("pouch-cap", (0.9, 0.35, 0.08), rough=0.45), rotation=(0, 90, POUCH_TURN))
+stencil("pouch-label", "WATER", POUCH + Vector((0, 0, 0.0565)), (0, 0, 1), 0.06, material("pouch-ink", (1.4, 1.4, 1.4), rough=0.6), typeface=anton, spin=-POUCH_TURN)
 
 
 def web(center, radius):
@@ -1572,13 +1647,41 @@ glass.scale = (*GLASS_SIZE, 1)
 glass_material, glass_export = overlay("glass", glass_path, strength=0.6)
 glass.data.materials.append(glass_material)
 
+# Gaffer tape over the crack, hidden until the player tapes it (cabin.js), so
+# it's in neither the still nor the bake: a strip along the crack from where
+# it starts, and one across it.
+CRACK_START = Vector((1.85, GLASS_Y, 2.22))
+crack_along = Vector((math.cos(math.radians(150)), 0, math.sin(math.radians(150))))
+gaffer = material("gaffer-tape", (0.32, 0.33, 0.34), rough=0.6)
+tape = []
+for i, (along, length, angle) in enumerate([(0.3, 0.68, 150), (0.34, 0.24, 60)]):
+	bpy.ops.mesh.primitive_plane_add(size=1, location=CRACK_START + crack_along * along - Vector((0, 0.004 + 0.002 * i, 0)), rotation=(math.pi / 2, -math.radians(angle), 0))
+	strip = bpy.context.object
+	strip.name = f"crack-tape-{i}"
+	strip.scale = (length, 0.075, 1)
+	finish(strip, gaffer)
+	strip.hide_render = True
+	tape.append(strip)
+
+# A speaker stuck to the glass in its lower left corner, on two suction cups,
+# that beeps along with the light outside (ui.js). Its cable runs down over
+# the frame, between the post-its and clear of the frame's bolt, to the desk.
+SPEAKER = Vector((-1.72, GLASS_Y - 0.045, WINDOW["z"] - 0.58))
+box("speaker-body", SPEAKER, (0.26, 0.06, 0.18), plug_black, bevel=0.02)
+cylinder("speaker-rim", SPEAKER + Vector((-0.03, -0.031, 0)), 0.072, 0.003, steel, rotation=(90, 0, 0))
+cylinder("speaker-grille", SPEAKER + Vector((-0.03, -0.033, 0)), 0.064, 0.003, material("speaker-grille", (0.09, 0.09, 0.1), rough=0.8), rotation=(90, 0, 0))
+sphere("speaker-led", SPEAKER + Vector((0.08, -0.031, 0.05)), 0.009, material("speaker-led", (0, 0, 0), emit=(1.0, 0.12, 0.05), strength=4), segments=12)
+for i, side in enumerate((-1, 1)):
+	cylinder(f"speaker-cup-{i}", SPEAKER + Vector((side * 0.15, 0.039, 0.03)), 0.035, 0.012, material("suction-cup", (0.25, 0.27, 0.28), rough=0.3), rotation=(90, 0, 0))
+cable("cable-speaker", [SPEAKER + Vector((0.08, 0, -0.09)), Vector((-1.67, 1.87, 2.05)), Vector((-1.78, 1.765, 2.02)), Vector((-1.9, 1.765, 1.92)), Vector((-1.92, 1.765, 1.78)), Vector((-1.93, 2.0, 1.4)), Vector((-1.95, 1.95, DESK_Z + 0.01))], 0.008, black_cable)
+
 # Haze under the ceiling: smoke and dust that's drifted up and caught the
 # light. Three soft sheets across the room at different depths, so it shifts
 # as the camera moves. Each is a picture painted here: drifting clouds,
 # thicker towards the ceiling, brighter near the bulb and the ceiling panel,
 # and fading out before the side walls. The live scene draws them the same
 # way, at HAZE_STRENGTH, and lets them breathe.
-HAZE_STRENGTH = 0.25
+HAZE_STRENGTH = 0.375
 HAZE_PIXELS = (512, 128)
 haze_sheets = []
 for i, (y, bottom) in enumerate(((1.4, 3.0), (0.1, 2.8), (-1.4, 2.6))):
@@ -1898,21 +2001,22 @@ def light(kind, location, energy, color, size=1.0, size_y=None, target=None, rot
 	return obj
 
 
-# Mood: the overhead panel turned well down, so the room is lit mostly by its
-# practical lights: warm pools from the desk lamp and the bare bulb against
-# the cool of the screens and the window.
-light("AREA", (0, 0.5, 4.85), 75, (1.0, 0.7, 0.45), size=6, size_y=1.4, target=(0, 0.5, 0))
-light("AREA", (0, -4.5, 3.6), 10, (1.0, 0.82, 0.65), size=6, size_y=2, target=(0, 1.5, 1.5))
-hanging = light("POINT", BULB, 180, (1.0, 0.55, 0.26))
+# Mood: low key. The overhead panel is nearly dead and there's hardly any
+# fill, so the room is lit by its practical lights: warm pools from the desk
+# lamp and the bare bulb against the cool of the screens and the window,
+# with deep shadow between them.
+light("AREA", (0, 0.5, 4.85), 22, (1.0, 0.7, 0.45), size=6, size_y=1.4, target=(0, 0.5, 0))
+light("AREA", (0, -4.5, 3.6), 3, (0.85, 0.85, 0.9), size=6, size_y=2, target=(0, 1.5, 1.5))
+hanging = light("POINT", BULB, 200, (1.0, 0.52, 0.22))
 hanging.data.shadow_soft_size = 0.03
-desk_lamp = light("SPOT", bulb_at, 420, (1.0, 0.64, 0.34), target=lamp_target)
+desk_lamp = light("SPOT", bulb_at, 480, (1.0, 0.6, 0.3), target=lamp_target)
 desk_lamp.data.spot_size = math.radians(70)
 desk_lamp.data.spot_blend = 0.35
 desk_lamp.data.shadow_soft_size = 0.04
-light("AREA", lid_center + lid_front * 0.3, 18, (0.7, 0.82, 1.0), size=1.1, size_y=0.7, target=lid_center + lid_front * 2)
+light("AREA", lid_center + lid_front * 0.3, 24, (0.6, 0.78, 1.0), size=1.1, size_y=0.7, target=lid_center + lid_front * 2)
 # Kept clear of the window's frame: tilted, its lower edge used to reach into
 # the opening and light a thin bright arc there that shimmered.
-light("AREA", (0, 1.6, WINDOW["z"]), 32, (0.72, 0.8, 1.0), size=WINDOW["width"], size_y=WINDOW["height"], target=(0, -3, 2.4))
+light("AREA", (0, 1.6, WINDOW["z"]), 22, (0.55, 0.7, 1.0), size=WINDOW["width"], size_y=WINDOW["height"], target=(0, -3, 2.4))
 
 # Sunlight for Saturn only: linked so it neither lights nor is blocked by the cabin.
 sunlit = bpy.data.collections.new("sunlit")
@@ -2055,7 +2159,7 @@ PROPS = {
 	"phone": "phone",
 	"headphones": "headphones",
 	"guitar": "guitar",
-	"window": "window-frame",
+	"speaker": "speaker",
 	"plant": "plant",
 	"notebook": "notebook",
 	"morse": "morse",
@@ -2063,7 +2167,9 @@ PROPS = {
 	"discs": "disc",
 	"sanitiser": "sanitiser",
 	"pens": "cup",
-	"notes": "postit",
+	**{f"note-{i}": f"postit-{i}" for i in range(len(POSTITS))},
+	"crack": "crack-tape",
+	"pouch": "pouch",
 	"gravity": "gravity",
 	"panel": "simon",
 }
@@ -2133,9 +2239,16 @@ bounds = {
 		Vector((max(c.x for c in desk_corners), max(c.y for c in desk_corners), max(c.z for c in desk_corners))),
 	),
 }
+# Where the crack's draught pulls the DO NOT LOSE case (cabin.js), in three.js
+# axes: up past the window's lower left, then along the glass until it
+# sticks over the crack, its back to the glass.
+leak = {
+	"via": [-1.0, 2.6, round(-(GLASS_Y - 0.15), 3)],
+	"stuck": [round(CRACK_START.x - 0.25, 3), round(CRACK_START.z + 0.14, 3), round(-(GLASS_Y - 0.03), 3)],
+}
 os.makedirs(os.path.join(ROOT, "src", "data"), exist_ok=True)
 with open(os.path.join(ROOT, "src", "data", "cabin.json"), "w") as file:
-	json.dump({"still": {"width": 1920, "height": 1080}, "hotspots": hotspots, "bounds": bounds}, file, indent="\t")
+	json.dump({"still": {"width": 1920, "height": 1080}, "hotspots": hotspots, "bounds": bounds, "leak": leak}, file, indent="\t")
 	file.write("\n")
 
 # ---------------------------------------------------------------- the still and the share card
@@ -2221,9 +2334,8 @@ card.hide_render = True
 
 # ---------------------------------------------------------------- the passing ship
 
-# The ship that comes past once the song's been played: a stubby utility
-# ship, seen side on, its hull number (715120: G O A T, as letter numbers)
-# painted large on its flank. It's 45 m out, lit by the sun and its own hull
+# The ship that comes past once the song's been played, seen side on, its
+# hull number (715120: G O A T, as letter numbers) painted large on its flank. It's 45 m out, lit by the sun and its own hull
 # floodlights, and drawn as a sharp picture on a card like Saturn's, about
 # 1,600 pixels across, so the number reads when you zoom in from the window
 # and not before. The live scene loads the picture only when the ship comes.
@@ -2242,26 +2354,135 @@ ship = bpy.data.objects.new("ship", None)
 scene.collection.objects.link(ship)
 ship.matrix_world = Matrix.Translation(ship_place) @ Matrix((tail, flank, tail.cross(flank))).transposed().to_4x4()
 bpy.context.view_layer.update()
-ship_paint = material("ship-paint", (0.8, 0.79, 0.74), rough=0.5, grime=0.35, scratches=0.15, dirt=0.4, pattern=grid(0.45, 0.01, (0.42, 0.41, 0.38), axes=("X", "Y", "Z")))
-ship_dark = material("ship-dark", (0.12, 0.12, 0.13), rough=0.4, metal=0.5, scratches=0.2, dirt=0.3)
+# GOAT Capital's conference liner: an old ore hauler the investors bought
+# cheap and did up, a long battered red hull with whatever they wanted
+# bolted on wherever it fitted. Its bolt-ons are placed by a random number
+# generator of its own, so the rest of the scene's random choices don't move.
+# Parts are placed in its own terms: nose towards -x, the flank the camera
+# sees at -y, up +z. It's built a little larger than it's shown (SHIP_SCALE).
+SHIP_SCALE = 0.78
+ship.scale = (SHIP_SCALE,) * 3
+bpy.context.view_layer.update()
+bolt_ons = random.Random(715120)
+ship_red = material("ship-red", (0.5, 0.06, 0.045), rough=0.55, grime=0.45, scratches=0.08, dirt=0.45, pattern=grid(0.5, 0.012, (0.26, 0.035, 0.03), axes=("X", "Y", "Z")))
+ship_grey = material("ship-grey", (0.5, 0.5, 0.47), rough=0.5, grime=0.4, scratches=0.25, dirt=0.4)
+ship_dark = material("ship-dark", (0.1, 0.1, 0.11), rough=0.4, metal=0.5, scratches=0.2, dirt=0.3)
 ship_glow = material("ship-glow", (0, 0, 0), emit=(0.45, 0.8, 1.0), strength=6)
+ship_lit = material("ship-window", (0, 0, 0), emit=(1.0, 0.82, 0.5), strength=2.5)
+ship_unlit = material("ship-window-dark", (0.03, 0.035, 0.04), rough=0.15)
+ship_paints = [ship_grey, material("ship-yellow", (0.75, 0.55, 0.08), rough=0.5, grime=0.4), material("ship-blue", (0.16, 0.24, 0.32), rough=0.5, grime=0.4), material("ship-rust", (0.35, 0.16, 0.07), rough=0.7, grime=0.5)]
 ship_parts = [
-	box("ship-hull", (0.2, 0, 0), (3.0, 0.62, 0.62), ship_paint, bevel=0.1, parent=ship),
-	sphere("ship-nose", (-1.3, 0, 0), 1, ship_paint, scale=(0.75, 0.3, 0.3), parent=ship),
-	box("ship-stripe", (-0.55, 0, 0), (0.16, 0.64, 0.64), orange, bevel=0.08, parent=ship),
-	box("ship-engines", (1.95, 0, -0.02), (0.6, 0.82, 0.72), ship_dark, bevel=0.06, parent=ship),
-	box("ship-fin", (1.25, 0, 0.44), (0.9, 0.05, 0.42), ship_paint, rotation=(0, -12, 0), bevel=0.02, parent=ship),
+	box("ship-hull", (0, 0, 0), (4.4, 0.8, 0.8), ship_red, bevel=0.12, parent=ship),
+	box("ship-keel", (0.25, 0, -0.5), (3.4, 0.5, 0.3), ship_grey, bevel=0.06, parent=ship),
+	sphere("ship-nose", (-2.15, 0, 0.04), 1, ship_red, scale=(0.62, 0.4, 0.42), parent=ship),
+	box("ship-cockpit", (-2.25, -0.35, 0.2), (0.42, 0.04, 0.11), material("ship-cockpit", (0.01, 0.015, 0.02), rough=0.5, emit=(0.1, 0.35, 0.75), strength=1.2), parent=ship),
+	box("ship-bumper", (-2.62, 0, -0.18), (0.22, 0.46, 0.2), ship_paints[1], bevel=0.03, parent=ship),
+	sphere("ship-dome", (-0.25, 0, 0.36), 1, material("ship-dome", (0.02, 0.025, 0.03), rough=0.05, emit=(0.9, 0.4, 0.12), strength=0.6), scale=(0.75, 0.32, 0.36), parent=ship),
+	box("ship-fin", (1.65, 0, 0.72), (1.0, 0.05, 0.6), ship_red, rotation=(0, -15, 0), bevel=0.02, parent=ship),
+	box("ship-engine-block", (2.45, 0, 0), (0.5, 0.86, 0.84), ship_dark, bevel=0.06, parent=ship),
 ]
-for side in (-1, 1):
-	ship_parts.append(cylinder(f"ship-nacelle-{side}", (2.0, side * 0.5, -0.22), 0.16, 1.0, ship_dark, rotation=(0, 90, 0), bevel=0.02, parent=ship))
-	ship_parts.append(cylinder(f"ship-nozzle-{side}", (2.51, side * 0.5, -0.22), 0.13, 0.02, ship_glow, rotation=(0, 90, 0), parent=ship))
-for i in range(4):
-	ship_parts.append(box(f"ship-window-{i}", (-1.05 + i * 0.13, -0.312, 0.13), (0.09, 0.01, 0.07), material(f"ship-window-{i}", (0, 0, 0), emit=(1.0, 0.85, 0.55), strength=2.5), parent=ship))
-ship_parts.append(sphere("ship-light-red", (-1.55, 0, 0.22), 0.035, material("ship-red", (0, 0, 0), emit=(1.0, 0.1, 0.05), strength=8), segments=12, parent=ship))
-ship_parts.append(sphere("ship-light-green", (1.3, 0, 0.73), 0.035, material("ship-green", (0, 0, 0), emit=(0.1, 1.0, 0.2), strength=8), segments=12, parent=ship))
-number = stencil("ship-number", "715120", (0.45, -0.313, -0.02), (0, -1, 0), 0.34, material("ship-ink", (0.03, 0.03, 0.035), rough=0.6), typeface=anton)
-number.parent = ship
-ship_parts.append(number)
+# Three engines that don't match: a big one in the middle, two small ones
+# above and below. Each ends in a glowing nozzle, where the live scene's
+# plume starts (SHIP_NOZZLES).
+SHIP_NOZZLES = []
+for i, (z, radius, length) in enumerate([(0.05, 0.28, 0.5), (0.47, 0.13, 0.36), (-0.4, 0.15, 0.42)]):
+	x = 2.7 + length / 2
+	ship_parts.append(cylinder(f"ship-engine-{i}", (x, 0, z), radius, length, ship_dark, rotation=(0, 90, 0), bevel=0.02, parent=ship))
+	ship_parts.append(cylinder(f"ship-nozzle-{i}", (x + length / 2 + 0.005, 0, z), radius * 0.82, 0.01, ship_glow, rotation=(0, 90, 0), parent=ship))
+	SHIP_NOZZLES.append((Vector((x + length / 2 + 0.01, 0, z)), radius))
+# Bolt-ons: containers, tanks and boxes along the top behind the dome and
+# under the keel, in mismatched paint, a dish on a mast, and antennas.
+for i in range(6):
+	x = bolt_ons.uniform(0.5, 2.0) if i < 4 else bolt_ons.uniform(-1.4, 1.6)
+	top = i < 4
+	size = (bolt_ons.uniform(0.35, 0.75), bolt_ons.uniform(0.3, 0.6), bolt_ons.uniform(0.18, 0.34))
+	z = 0.4 + size[2] / 2 if top else -0.65 - size[2] / 2
+	paint = bolt_ons.choice(ship_paints)
+	if bolt_ons.random() < 0.35:
+		ship_parts.append(cylinder(f"ship-tank-{i}", (x, 0, z), size[2] / 2 + 0.03, size[0], paint, rotation=(0, 90, 0), bevel=0.02, parent=ship))
+	else:
+		ship_parts.append(box(f"ship-module-{i}", (x, 0, z), size, paint, bevel=0.03, parent=ship))
+ship_parts.append(cylinder("ship-mast", (-1.15, 0, 0.62), 0.025, 0.5, ship_grey, parent=ship))
+ship_parts.append(sphere("ship-dish", (-1.15, 0, 0.92), 0.22, ship_grey, scale=(1, 1, 0.35), rotation=(0, -35, 0), parent=ship))
+for i in range(3):
+	x, height = bolt_ons.uniform(-0.9, 1.2), bolt_ons.uniform(0.3, 0.7)
+	ship_parts.append(cylinder(f"ship-antenna-{i}", (x, 0.1, 0.4 + height / 2), 0.012, height, ship_grey, vertices=8, parent=ship))
+for i in range(7):
+	ship_parts.append(box(f"ship-radiator-{i}", (-0.9 + i * 0.16, 0, -0.78), (0.035, 0.42, 0.28), ship_grey, parent=ship))
+# Its attitude thrusters, small blocks the live scene puffs from (SHIP_THRUSTERS).
+SHIP_THRUSTERS = [Vector(at) for at in [(-2.3, -0.2, 0.42), (-2.25, -0.2, -0.38), (2.2, -0.45, 0.45), (1.9, -0.3, -0.72)]]
+for i, at in enumerate(SHIP_THRUSTERS):
+	ship_parts.append(box(f"ship-thruster-{i}", at, (0.1, 0.1, 0.08), ship_dark, parent=ship))
+# Passenger windows along both decks, some lit, some not.
+for deck, (z, y, x_from, x_to) in enumerate([(0.27, -0.405, -0.75, 2.05), (-0.5, -0.255, -1.25, 1.9)]):
+	x = x_from
+	while x < x_to:
+		ship_parts.append(box(f"ship-window-{deck}-{len(ship_parts)}", (x, y, z), (0.09, 0.01, 0.07), ship_lit if bolt_ons.random() < 0.72 else ship_unlit, parent=ship))
+		x += 0.17
+# Navigation lights: red on the nose, green on the fin, a white strobe on
+# the tail. The live scene lights and blinks them (SHIP_LIGHTS).
+SHIP_LIGHTS = [((-2.55, -0.2, -0.05), "red"), ((1.85, -0.03, 1.02), "green"), ((2.55, -0.2, 0.48), "white")]
+for i, (at, colour) in enumerate(SHIP_LIGHTS):
+	ship_parts.append(sphere(f"ship-light-{colour}", at, 0.04, ship_dark, segments=12, parent=ship))
+# The livery: the hull number large on the flank, and GOAT Capital's name
+# and logo by the nose: the registry's one-bit goat (src/scripts/laptop.js),
+# drawn with the same shapes.
+def goat_picture(path):
+	width, height, grow = 64, 40, 8
+	X, Y = np.meshgrid(np.arange(width * grow) / grow + 0.5 / grow, np.arange(height * grow) / grow + 0.5 / grow)
+	inside = np.zeros(X.shape, bool)
+	def blob(cx, cy, rx, ry, turn=0.0):
+		dx, dy = X - cx, Y - cy
+		u = (dx * math.cos(turn) + dy * math.sin(turn)) / rx
+		v = (-dx * math.sin(turn) + dy * math.cos(turn)) / ry
+		return u * u + v * v <= 1
+	def shape(points):
+		hit = np.zeros(X.shape, bool)
+		for (ax, ay), (bx, by) in zip(points, points[1:] + points[:1]):
+			crosses = (ay > Y) != (by > Y)
+			at = ax + (Y - ay) * (bx - ax) / np.where(by == ay, 1e-9, by - ay)
+			hit ^= crosses & (X < at)
+		return hit
+	inside |= blob(38, 20, 15, 7.5)
+	inside |= shape([(25, 15), (18, 7), (14, 10), (23, 22)])
+	inside |= blob(14, 10, 5.5, 3.4, -0.45)
+	inside |= blob(8.5, 13.2, 3.4, 2.1, -0.55)
+	inside |= shape([(8, 14.5), (11, 15), (8.5, 20.5)])
+	inside |= shape([(16, 8), (22.5, 9.5), (16.5, 10.5)])
+	angle = np.mod(np.arctan2(Y - 9.5, X - 19.5), 2 * math.pi)
+	inside |= (np.abs(np.hypot(X - 19.5, Y - 9.5) - 5.5) <= 1.1) & (angle >= math.pi * 1.12) & (angle <= math.pi * 1.8)
+	for x in (26, 30, 43, 47):
+		inside |= (X >= x) & (X < x + 2.6) & (Y >= 24) & (Y < 36)
+	inside |= shape([(52, 16), (56, 10.5), (54, 17.5)])
+	inside &= ~((X >= 12) & (X < 13.6) & (Y >= 8.6) & (Y < 10.2))
+	# One-bit, as on the terminal: whole pixels on or off.
+	cells = inside.reshape(height, grow, width, grow).mean(axis=(1, 3)) > 0.5
+	pixels = np.zeros((height * grow, width * grow, 4), np.float32)
+	pixels[np.repeat(np.repeat(cells, grow, 0), grow, 1)] = (0.95, 0.92, 0.85, 1)
+	picture = bpy.data.images.new("goat-logo", width * grow, height * grow, alpha=True)
+	picture.pixels = pixels[::-1].ravel()
+	picture.filepath_raw = path
+	picture.file_format = "PNG"
+	picture.save()
+	return path
+logo = material("ship-logo", (1, 1, 1), rough=0.6)
+logo_texture = logo.node_tree.nodes.new("ShaderNodeTexImage")
+logo_texture.image = bpy.data.images.load(goat_picture(os.path.join(ROOT, "scene", "goat-logo.png")))
+logo_bsdf = logo.node_tree.nodes["Principled BSDF"]
+logo.node_tree.links.new(logo_texture.outputs["Color"], logo_bsdf.inputs["Base Color"])
+logo.node_tree.links.new(logo_texture.outputs["Alpha"], logo_bsdf.inputs["Alpha"])
+bpy.ops.mesh.primitive_plane_add(size=1, location=(-1.15, -0.406, 0.08), rotation=(math.pi / 2, 0, 0))
+goat_decal = bpy.context.object
+goat_decal.name = "ship-logo"
+goat_decal.scale = (0.56, 0.35, 1)
+goat_decal.data.materials.append(logo)
+goat_decal.parent = ship
+ship_parts.append(goat_decal)
+paint_white = material("ship-white", (0.9, 0.88, 0.82), rough=0.6)
+for name, text, at, size, paint in [("ship-name", "GOAT CAPITAL", (-1.15, -0.407, -0.2), 0.11, paint_white), ("ship-number", "715120", (0.55, -0.407, -0.03), 0.34, material("ship-ink", (0.03, 0.03, 0.035), rough=0.6))]:
+	lettering = stencil(name, text, at, (0, -1, 0), size, paint, typeface=anton)
+	lettering.parent = ship
+	ship_parts.append(lettering)
 for obj in ship_parts:
 	obj.hide_render = True
 	sunlit.objects.link(obj)
@@ -2323,6 +2544,21 @@ ship_start = bpy.data.objects.new("ship-start", None)
 scene.collection.objects.link(ship_start)
 ship_start.location = frame_card("ship-start-probe", x0 + start_seen.x - end_seen.x, x1 + start_seen.x - end_seen.x, y0, y1, SHIP_DEPTH).matrix_world.translation
 bpy.data.objects.remove(bpy.data.objects["ship-start-probe"])
+# Where its engines, thrusters and lights are on its card, for the live scene
+# (cabin.js): x from -0.5 to 0.5 across ship.webp, z from -0.5 at its top to
+# 0.5 at its bottom; nozzle sizes in metres, as it's shown.
+def on_ship_card(local):
+	seen_at = world_to_camera_view(scene, camera, ship.matrix_world @ local)
+	return {"x": round((seen_at.x - x0) / (x1 - x0) - 0.5, 4), "z": round((y1 - seen_at.y) / (y1 - y0) - 0.5, 4)}
+with open(os.path.join(ROOT, "src", "data", "cabin.json")) as file:
+	cabin_data = json.load(file)
+cabin_data["ship"] = {
+	"nozzles": [{**on_ship_card(at), "radius": round(radius * SHIP_SCALE, 3)} for at, radius in SHIP_NOZZLES],
+	"thrusters": [on_ship_card(at) for at in SHIP_THRUSTERS],
+	"lights": [{**on_ship_card(Vector(at)), "colour": colour} for at, colour in SHIP_LIGHTS],
+}
+with open(os.path.join(ROOT, "src", "data", "cabin.json"), "w") as file:
+	json.dump(cabin_data, file, indent="\t")
 
 # Everything else out there (stars, nebula, the moons) as a 360 degree
 # panorama from the camera's usual spot. The live scene shows it as its
@@ -2379,6 +2615,8 @@ FLOATERS = {
 	"float-biscuit-0": ["biscuit"],
 	"float-paper-0": ["paper-ball"],
 	"float-pick-0": ["pick"],
+	"float-pouch-0": [obj.name for obj in scene.objects if obj.type == "MESH" and obj.name.startswith("pouch")],
+	**{f"float-books-{i}": [f"book-{i}-{part}" for part in ("bottom", "top", "spine", "pages", "title")] for i in range(len(BOOKS))},
 	"gravity-lever": ["gravity-lever", "gravity-lever-knob"],
 }
 movable = []
@@ -2400,7 +2638,7 @@ for name, parts in FLOATERS.items():
 		bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY", center="BOUNDS")
 	movable.append(thing)
 
-outside = space_objects + ship_parts + [screen, phone_screen, card, ship_card, glass, bulb, gravity_lamp, simon_lamp] + simon_buttons + haze_sheets + hits + movable
+outside = space_objects + ship_parts + [screen, phone_screen, card, ship_card, glass, bulb, gravity_lamp, simon_lamp] + simon_buttons + haze_sheets + tape + hits + movable
 for other in bpy.context.selected_objects:
 	other.select_set(False)
 interior = [obj for obj in scene.objects if obj.type == "MESH" and obj not in outside]
@@ -2425,9 +2663,9 @@ bpy.ops.object.mode_set(mode="OBJECT")
 # Small lettering grows instead, or its letters take colour from their
 # neighbours in the texture and break up when zoomed in on.
 island_scale = {"cream-panel": 0.45, "desk-mat": 0.45, "charcoal": 0.45, "rib": 0.45, "frame-paint": 0.75}
-island_scale |= {"stencil-cream": 4, "poster-venue": 4, "poster-small": 8}
+island_scale |= {"stencil-cream": 4, "poster-venue": 4, "poster-small": 8, "ink": 4}
 # The loose things pack into the same texture; their marker lettering grows too.
-loose_scale = {"marker-ink": 12, "disc-sticker": 3}
+loose_scale = {"marker-ink": 12, "disc-sticker": 3, "book-ink-dark": 4, "book-ink-light": 4, "pouch-ink": 4}
 assert set(island_scale) <= {mat.name for mat in cabin.data.materials}, "island_scale names a material the cabin doesn't have"
 assert set(loose_scale) <= {mat.name for thing in movable for mat in thing.data.materials}, "loose_scale names a material no loose thing has"
 for thing, scale in [(cabin, island_scale)] + [(thing, loose_scale) for thing in movable]:

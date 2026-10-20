@@ -12,11 +12,12 @@
 import {
 	AdditiveBlending,
 	Box3,
+	BufferAttribute,
+	CatmullRomCurve3,
 	BufferGeometry,
 	CanvasTexture,
 	Color,
 	EquirectangularReflectionMapping,
-	Float32BufferAttribute,
 	Matrix4,
 	Mesh,
 	MeshBasicMaterial,
@@ -29,6 +30,7 @@ import {
 	Raycaster,
 	SRGBColorSpace,
 	Scene,
+	SphereGeometry,
 	Sprite,
 	SpriteMaterial,
 	TextureLoader,
@@ -53,23 +55,16 @@ const TERMINAL = { width: 1024, height: 640 };
 
 // Where the camera goes when a prop is clicked: distance is how close it gets
 // before the dialog opens, and zoom how far scrolling or pinching can zoom in
-// there, beside a side panel. The window is different. The camera goes straight
-// up to the glass and stays free to look around space, within its own limits,
-// until the window's panel is closed.
-// The laptop is different again: the camera goes square on to its screen,
-// close enough for the screen to fill this much of the view.
+// there, beside a side panel. The laptop and the Morse card are different:
+// the camera goes square on to the screen or straight up to the card, close
+// enough for it to fill this much of the view, and stays until Escape or
+// Step back.
 const VIEWS = {
 	laptop: { screen: true, fill: 0.86 },
 	panel: { distance: 1.2, zoom: 3 },
 	guitar: { distance: 2.6 },
 	phone: { distance: 1.3, zoom: 3 },
-	morse: { distance: 1.3, zoom: 3 },
-	window: {
-		distance: 1.4,
-		straight: true,
-		zoom: 4,
-		look: { azimuth: 0.75, minPolar: 1.15, maxPolar: 2.0 },
-	},
+	morse: { straight: true, fill: 0.92, zoom: 3 },
 };
 const FLIGHT_SECONDS = 0.8;
 // The passing ship: seconds to glide in and stop, to sink toward Saturn once
@@ -86,6 +81,10 @@ const SHIP = {
 	burn: { arriving: 0.55, parked: 0.12, sinking: 0, climbing: 1 },
 	puffs: [1.2, 2.8],
 };
+// Jet trails: glowing exhaust left behind in space, as points that drift
+// back from the nozzles at drift metres a second, and fade over seconds.
+// rate is how many a second at each stage; none while it sits or sinks.
+const TRAIL = { count: 700, seconds: 2.6, drift: 1.4, size: 0.6, rate: { arriving: 25, climbing: 110 } };
 
 // Looking around: the camera circles a point on the desk, and these limits
 // keep it inside the cabin, below the ceiling and above the desk. Zoom is far
@@ -107,7 +106,7 @@ const CLICK_SLOP = 6;
 // drift in the desk lamp's beam, out to spread of its width.
 const AMBIENT = {
 	fps: 30,
-	haze: 0.45,
+	haze: 0.675,
 	halo: 0.3,
 	flicker: { every: [8, 16], gap: 0.36 },
 	steam: { puffs: 6, seconds: 4, rise: 0.4 },
@@ -141,6 +140,15 @@ const GRAVITY = {
 // times the speed it hits; and after home seconds a soft pull draws it back
 // to where it was floating.
 const THROW = { fastest: 5, spin: 8, air: 0.25, spinAir: 0.2, restitution: 0.5, home: 2.5, pull: 1.5 };
+
+// The crack in the window, leaking while the gravity's off: the draught takes
+// DO NOT LOSE to it in seconds, and once there it rattles by rattle metres.
+const LEAK = { seconds: 12, rattle: 0.004 };
+
+// Blobs of water from the pouch: radius metres across, at most most of them
+// at once. One hitting something faster than splat metres a second splats;
+// the plant that drinks one bounces for perk seconds.
+const BLOB = { radius: 0.045, most: 6, splat: 0.35, perk: 0.7 };
 
 export async function startCabin(stage, ui, laptop) {
 	const canvas = stage.querySelector('.live');
@@ -292,19 +300,12 @@ export async function startCabin(stage, ui, laptop) {
 	let climbWaiting = false;
 
 	// Its engines: a plume behind each nozzle, and puffs from its attitude
-	// thrusters. Places are on the ship's card, from -0.5 to 0.5 across and
-	// down ship.webp; sizes are in metres. Plumes reach length metres at
-	// full burn, and flicker.
+	// thrusters. Where they are on the ship's card comes from
+	// scene/cabin.py: from -0.5 to 0.5 across and down ship.webp. Plumes
+	// reach seven nozzle radii at full burn, and flicker.
 	const cardSize = ship.scale.clone();
-	const NOZZLES = [
-		{ x: 0.403, z: 0.032, height: 0.24, length: 1.6 },
-		{ x: 0.453, z: 0.294, height: 0.2, length: 1.4 },
-	];
-	const THRUSTERS = [
-		{ x: -0.47, z: 0.08 },
-		{ x: 0.3, z: -0.44 },
-		{ x: 0.05, z: 0.46 },
-	];
+	const NOZZLES = cabinData.ship.nozzles.map(({ x, z, radius }) => ({ x, z, height: radius * 1.8, length: radius * 7 }));
+	const THRUSTERS = cabinData.ship.thrusters;
 	const plumeTexture = (() => {
 		const picture = document.createElement('canvas');
 		picture.width = 256;
@@ -350,6 +351,84 @@ export async function startCabin(stage, ui, laptop) {
 		ship.add(puff);
 		return puff;
 	});
+	// Its navigation lights: red and green glowing steadily, breathing a
+	// little; the white strobe flashing twice every 1.6 seconds.
+	const LIGHTS = { red: 'rgb(255 70 50', green: 'rgb(80 255 120', white: 'rgb(255 255 255' };
+	const lights = cabinData.ship.lights.map(({ x, z, colour }) => {
+		const glow = new Mesh(flat, glowing(spot([[0, `${LIGHTS[colour]} / 1)`], [0.3, `${LIGHTS[colour]} / 0.45)`], [1, `${LIGHTS[colour]} / 0)`]])));
+		glow.position.set(x, 0.004, z);
+		glow.scale.set(0.35 / cardSize.x, 1, 0.35 / cardSize.z);
+		glow.renderOrder = 2;
+		glow.userData.colour = colour;
+		ship.add(glow);
+		return glow;
+	});
+	function blinkLights(now) {
+		for (const light of lights) {
+			const strobe = now % 1.6;
+			light.material.opacity =
+				light.userData.colour === 'white' ? (reduceMotion.matches || strobe < 0.07 || (strobe > 0.2 && strobe < 0.27) ? 1 : 0) : reduceMotion.matches ? 0.85 : 0.75 + 0.25 * Math.sin(now * 2);
+		}
+	}
+
+	// The jet trails, in space rather than on the ship, so they're left behind
+	// as it moves: a ring of points reused oldest first.
+	const trailPositions = new Float32Array(TRAIL.count * 3);
+	const trailColours = new Float32Array(TRAIL.count * 3);
+	const trailDrift = Array.from({ length: TRAIL.count }, () => new Vector3());
+	const trailAge = new Float32Array(TRAIL.count).fill(Infinity);
+	const trailGeometry = new BufferGeometry();
+	// Its own arrays, not copies, so writing to them moves the points.
+	trailGeometry.setAttribute('position', new BufferAttribute(trailPositions, 3));
+	trailGeometry.setAttribute('color', new BufferAttribute(trailColours, 3));
+	const trail = new Points(
+		trailGeometry,
+		new PointsMaterial({
+			size: TRAIL.size,
+			map: spot([
+				[0, 'rgb(255 255 255 / 1)'],
+				[1, 'rgb(255 255 255 / 0)'],
+			]),
+			vertexColors: true,
+			transparent: true,
+			blending: AdditiveBlending,
+			depthWrite: false,
+			toneMapped: false,
+		}),
+	);
+	trail.frustumCulled = false;
+	scene.add(trail);
+	let trailNext = 0;
+	let trailOwed = 0;
+	const nozzleAt = new Vector3();
+	const behind = new Vector3();
+	function streamTrail(seconds) {
+		const rate = ship.visible && !reduceMotion.matches ? TRAIL.rate[engines] ?? 0 : 0;
+		trailOwed += rate * seconds;
+		behind.set(1, 0, 0).applyQuaternion(ship.quaternion).normalize();
+		for (; trailOwed >= 1; trailOwed -= 1) {
+			const nozzle = NOZZLES[Math.floor(Math.random() * NOZZLES.length)];
+			ship.localToWorld(nozzleAt.set(nozzle.x, 0, nozzle.z)).toArray(trailPositions, trailNext * 3);
+			trailDrift[trailNext].copy(behind).multiplyScalar(TRAIL.drift * (0.6 + Math.random() * 0.8)).add(new Vector3(between(-0.15, 0.15), between(-0.15, 0.15), between(-0.15, 0.15)));
+			trailAge[trailNext] = 0;
+			trailNext = (trailNext + 1) % TRAIL.count;
+		}
+		for (let i = 0; i < TRAIL.count; i++) {
+			if (trailAge[i] > TRAIL.seconds) {
+				trailColours.fill(0, i * 3, i * 3 + 3);
+				continue;
+			}
+			trailAge[i] += seconds;
+			nozzleAt.fromArray(trailPositions, i * 3).addScaledVector(trailDrift[i], seconds).toArray(trailPositions, i * 3);
+			const left = Math.max(0, 1 - trailAge[i] / TRAIL.seconds) ** 2;
+			trailColours[i * 3] = left;
+			trailColours[i * 3 + 1] = left * (0.55 + 0.4 * left);
+			trailColours[i * 3 + 2] = left * (0.3 + 0.7 * left);
+		}
+		trailGeometry.attributes.position.needsUpdate = true;
+		trailGeometry.attributes.color.needsUpdate = true;
+	}
+
 	let engines = 'parked';
 	let burn = 0;
 	let nextPuff = 0;
@@ -357,6 +436,9 @@ export async function startCabin(stage, ui, laptop) {
 	function burnEngines(now) {
 		const seconds = Math.min(0.1, now - lastBurn);
 		lastBurn = now;
+		streamTrail(seconds);
+		if (!ship.visible) return;
+		blinkLights(now);
 		const target = SHIP.burn[engines];
 		burn = reduceMotion.matches ? target : burn + (target - burn) * (1 - Math.exp(-seconds * 1.5));
 		for (const plume of plumes) {
@@ -396,7 +478,7 @@ export async function startCabin(stage, ui, laptop) {
 		leg = { from: ship.position.clone(), to, start: performance.now() / 1000, seconds, ease, then };
 	}
 	function glideShip(now) {
-		if (ship.visible) burnEngines(now);
+		burnEngines(now);
 		if (climbWaiting && !usingLaptop && !terminalAway) {
 			climbWaiting = false;
 			engines = 'climbing';
@@ -630,7 +712,7 @@ export async function startCabin(stage, ui, laptop) {
 	scene.add(beacon);
 
 	// The same Morse pattern as the HTML light: steps of [on, units].
-	const steps = JSON.parse(document.querySelector('.replay').dataset.signal);
+	const steps = JSON.parse(document.querySelector('.beacon[data-signal]').dataset.signal);
 	let blinkTimer;
 	function blink(index = 0) {
 		clearTimeout(blinkTimer);
@@ -766,8 +848,8 @@ export async function startCabin(stage, ui, laptop) {
 	}
 	for (let i = 0; i < motes; i++) placeMote(i);
 	const dustGeometry = new BufferGeometry();
-	dustGeometry.setAttribute('position', new Float32BufferAttribute(motePositions, 3));
-	dustGeometry.setAttribute('color', new Float32BufferAttribute(moteColours, 3));
+	dustGeometry.setAttribute('position', new BufferAttribute(motePositions, 3));
+	dustGeometry.setAttribute('color', new BufferAttribute(moteColours, 3));
 	const dust = new Points(
 		dustGeometry,
 		new PointsMaterial({
@@ -875,6 +957,125 @@ export async function startCabin(stage, ui, laptop) {
 	// What each loose thing is doing, floating or falling, since when, and from where.
 	const moves = new Map();
 	if (progress.has('pick')) pocket();
+
+	// The crack in the window leaks while the gravity's off, until it's taped.
+	// The draught takes DO NOT LOSE: up out of the pile, past the window's lower
+	// left and along the glass, faster as it goes, until it sticks over the
+	// crack, rattling, its sticker against the glass. A press on it catches it,
+	// and it comes back and turns over, sticker out (floatFrom).
+	const notLose = scene.getObjectByName('float-discs-1');
+	const xAxis = new Vector3(1, 0, 0);
+	const tape = ['crack-tape-0', 'crack-tape-1'].map((name) => scene.getObjectByName(name));
+	const tapeMaterial = new MeshBasicMaterial({ color: new Color().setRGB(0.36, 0.36, 0.35, SRGBColorSpace) });
+	for (const strip of tape) {
+		strip.material = tapeMaterial;
+		strip.visible = progress.has('taped');
+	}
+	let leaking = false;
+	function leakFrom(thing, at) {
+		const home = homes.get(thing);
+		const path = new CatmullRomCurve3([
+			home.position.clone(),
+			home.position.clone().add(new Vector3(0, 0.4, 0.15)),
+			new Vector3(...cabinData.leak.via),
+			new Vector3(...cabinData.leak.stuck),
+		]);
+		return { leaking: true, at, path, home: home.quaternion.clone(), tilt: 0 };
+	}
+	function drift(thing, move, now) {
+		const along = Math.min(1, Math.max(0, now - move.at) / LEAK.seconds);
+		const pulled = along ** 2;
+		move.path.getPoint(pulled, thing.position);
+		move.tilt = (Math.PI / 2) * pulled;
+		thing.quaternion.copy(leaning.setFromAxisAngle(xAxis, move.tilt)).multiply(move.home);
+		if (along < 1) return;
+		thing.position.x += LEAK.rattle * Math.sin(now * 61);
+		thing.position.y += LEAK.rattle * Math.sin(now * 47);
+		if (!move.stuck) {
+			move.stuck = true;
+			ui.say('DO NOT LOSE is stuck against the crack, rattling. Grab it before it goes.');
+		}
+	}
+	function catchCase(quiet = false) {
+		if (!leaking) return;
+		leaking = false;
+		const float = floatFrom(notLose, performance.now() / 1000);
+		float.leanFrom = moves.get(notLose)?.tilt ?? 0;
+		float.from.quaternion.copy(homes.get(notLose).quaternion);
+		progress.mark('caught');
+		if (reduceMotion.matches) {
+			notLose.position.copy(float.hover);
+			notLose.quaternion.copy(leaning.setFromAxisAngle(float.axis, float.lean)).multiply(float.from.quaternion);
+			moves.delete(notLose);
+		} else {
+			moves.set(notLose, float);
+		}
+		if (!quiet) ui.say("Caught it: DO NOT LOSE, nearly lost. There's a sticker underneath: 'backup password: flexbox'.");
+		requestRender();
+	}
+	function tapeCrack() {
+		catchCase(true);
+		for (const strip of tape) strip.visible = true;
+		requestRender();
+	}
+
+	// With the gravity off, squeezing the pouch lets out a wobbling blob of
+	// water. A blob can be grabbed and thrown like anything floating: one that
+	// reaches the plant is drunk, and the plant bounces; one that hits anything
+	// else hard enough splats.
+	const pouch = scene.getObjectByName('float-pouch-0');
+	const plant = scene.getObjectByName('float-plant-0');
+	const blobs = new Map();
+	const blobGeometry = new SphereGeometry(BLOB.radius, 16, 12);
+	const blobMaterial = new MeshBasicMaterial({ color: new Color().setRGB(0.7, 0.88, 1, SRGBColorSpace), transparent: true, opacity: 0.75, depthWrite: false });
+	const plantBox = new Box3();
+	let plantPerk = -Infinity;
+	let squeezed = false;
+	function squeeze() {
+		if (reduceMotion.matches) return ui.say('You squeeze out a blob of water and nudge it over to the plant. It drinks it in.');
+		const blob = new Mesh(blobGeometry, blobMaterial);
+		blob.position.copy(pouch.position).add(new Vector3(0, 0.1, 0.05));
+		scene.add(blob);
+		blobs.set(blob, { velocity: new Vector3(between(-0.03, 0.03), 0.06, 0.04), phase: between(0, Math.PI * 2) });
+		radii.set(blob, BLOB.radius);
+		if (blobs.size > BLOB.most) burst(blobs.keys().next().value);
+		if (!squeezed) ui.say('A wobbling blob of water. Throw it at the plant.');
+		squeezed = true;
+		requestRender();
+	}
+	function burst(blob) {
+		blobs.delete(blob);
+		moves.delete(blob);
+		radii.delete(blob);
+		scene.remove(blob);
+		if (held?.thing === blob) held = null;
+	}
+	function moveBlobs(now, seconds) {
+		const perking = (now - plantPerk) / BLOB.perk;
+		plant.scale.setScalar(perking < 1 ? 1 + 0.08 * Math.sin(Math.PI * perking) : 1);
+		if (!blobs.size) return;
+		plantBox.setFromObject(scene.getObjectByName('hit-plant'));
+		for (const [blob, state] of blobs) {
+			const wobble = now * 7 + state.phase;
+			blob.scale.set(1 + 0.12 * Math.sin(wobble), 1 + 0.12 * Math.sin(wobble + 2.1), 1 + 0.12 * Math.sin(wobble + 4.2));
+			if (moves.get(blob)?.held) continue;
+			state.velocity.multiplyScalar(Math.exp(-THROW.air * seconds));
+			blob.position.addScaledVector(state.velocity, seconds);
+			if (plantBox.containsPoint(blob.position)) {
+				burst(blob);
+				plantPerk = now;
+				ui.say('The snake plant drinks it in. It looks pleased with itself.');
+				continue;
+			}
+			let hardest = hitRoom(blob.position, state.velocity, BLOB.radius);
+			for (const box of fixed) hardest = Math.max(hardest, hitBox(box, blob.position, state.velocity, BLOB.radius));
+			if (hardest > BLOB.splat) {
+				burst(blob);
+				ui.bump(hardest);
+				ui.say('Splat.');
+			}
+		}
+	}
 	const leverHome = lever.quaternion.clone();
 	let leverSwing = { at: 0, from: 0, to: 0, angle: 0 };
 	const up = new Vector3(0, 1, 0);
@@ -888,8 +1089,8 @@ export async function startCabin(stage, ui, laptop) {
 
 	// How a thing floats: where it hovers, which way it leans, how fast it
 	// turns. Pens rise clear of the cup and fan out, and the notebook's pen
-	// clear of the notebook; the stacked disc cases spread apart in order and
-	// stay nearly flat, so they don't pass through each other. The bottom
+	// clear of the notebook; the stacked disc cases and books spread apart in
+	// order and stay nearly flat, so they don't pass through each other. The bottom
 	// one, DO NOT LOSE, drifts forward out of the stack and turns over, still,
 	// so the password stuck underneath (scene/cabin.py) reads from the chair.
 	function floatFrom(thing, at, spot) {
@@ -899,6 +1100,9 @@ export async function startCabin(stage, ui, laptop) {
 		if (prop === 'discs' && index > 0) {
 			hover.y += 0.04 + 0.09 * index + between(0, 0.02);
 			lean = between(0, 0.06);
+		} else if (prop === 'books') {
+			hover.y += 0.08 + 0.1 * index + between(0, 0.02);
+			lean = between(0, 0.08);
 		} else if (spot) {
 			hover.copy(spot);
 		} else if (index > 0) {
@@ -943,7 +1147,8 @@ export async function startCabin(stage, ui, laptop) {
 		thing.position.x += risen * GRAVITY.wander * Math.sin(now * rx + px);
 		thing.position.y += risen * GRAVITY.wander * Math.sin(now * ry + py);
 		thing.position.z += risen * GRAVITY.wander * Math.sin(now * rz + pz);
-		leaning.setFromAxisAngle(move.axis, move.lean * risen);
+		const leanFrom = move.leanFrom ?? 0;
+		leaning.setFromAxisAngle(move.axis, leanFrom + (move.lean - leanFrom) * risen);
 		turning.setFromAxisAngle(up, move.turn * since * risen);
 		thing.quaternion.copy(turning).multiply(leaning).multiply(move.from.quaternion);
 	}
@@ -984,13 +1189,12 @@ export async function startCabin(stage, ui, laptop) {
 	}
 
 	// What thrown things bounce off: the inside of the room and the desk, from
-	// the scene's data, and the picking boxes of the props that stay put
-	// (except the window's, which stands well out from the glass).
+	// the scene's data, and the picking boxes of the props that stay put.
 	gltf.scene.updateMatrixWorld(true);
 	const room = new Box3().setFromArray(cabinData.bounds.room.flat());
 	const fixed = [
 		new Box3().setFromArray(cabinData.bounds.desk.flat()),
-		...hits.filter((hit) => hit.parent === gltf.scene && hit.userData.prop !== 'window').map((hit) => new Box3().setFromObject(hit)),
+		...hits.filter((hit) => hit.parent === gltf.scene).map((hit) => new Box3().setFromObject(hit)),
 	];
 	// Each thing bounces as a ball: half its thinnest side, or a fifth of its
 	// length if that's more, so a pen doesn't go halfway into a wall.
@@ -1099,14 +1303,16 @@ export async function startCabin(stage, ui, laptop) {
 		for (const [thing, move] of moves) {
 			if (move.falling) fallHome(thing, move, now);
 			else if (move.flying) fly(thing, move, now, seconds);
+			else if (move.leaking) drift(thing, move, now);
 			else if (!move.held) floatAbout(thing, move, now);
 		}
+		moveBlobs(now, seconds);
 		swingLever(now);
 	}
 
 	// Things falling or thrown and the lever swinging need every frame;
 	// floating is slow enough for AMBIENT.fps.
-	const quick = (now) => now - leverSwing.at < 0.2 || [...moves.values()].some((move) => move.falling || move.flying);
+	const quick = (now) => now - leverSwing.at < 0.2 || blobs.size > 0 || now - plantPerk < BLOB.perk || [...moves.values()].some((move) => move.falling || move.flying);
 
 	function setGravity(on) {
 		gravityOn = on;
@@ -1117,11 +1323,15 @@ export async function startCabin(stage, ui, laptop) {
 		// Anything held is let go of.
 		held = null;
 		canvas.style.cursor = 'grab';
+		leaking = !on && !progress.has('taped');
+		if (on) for (const blob of [...blobs.keys()]) burst(blob);
 		for (const thing of loose) {
 			if (on) {
 				const move = fallFrom(thing, now);
 				moves.set(thing, move);
 				if (move.impact > 0.4) landings.push(move.time);
+			} else if (thing === notLose && leaking) {
+				moves.set(thing, leakFrom(thing, now + between(0, GRAVITY.stagger)));
 			} else {
 				moves.set(thing, floatFrom(thing, now + between(0, GRAVITY.stagger)));
 			}
@@ -1134,6 +1344,9 @@ export async function startCabin(stage, ui, laptop) {
 				if (move.falling) {
 					thing.position.copy(homes.get(thing).position);
 					thing.quaternion.copy(homes.get(thing).quaternion);
+				} else if (move.leaking) {
+					move.path.getPoint(1, thing.position);
+					thing.quaternion.copy(leaning.setFromAxisAngle(xAxis, Math.PI / 2)).multiply(move.home);
 				} else {
 					thing.position.copy(move.hover);
 					thing.quaternion.copy(leaning.setFromAxisAngle(move.axis, move.lean)).multiply(move.from.quaternion);
@@ -1349,13 +1562,13 @@ export async function startCabin(stage, ui, laptop) {
 		if (event.pointerType !== 'mouse' || event.buttons || saved) return;
 		showPicked(pick(event), event);
 		// Floating things can be grabbed.
-		if (!gravityOn && raycaster.intersectObjects(loose, false).length) canvas.style.cursor = 'grab';
+		if (!gravityOn && raycaster.intersectObjects([...loose, ...blobs.keys()], false).length) canvas.style.cursor = 'grab';
 	});
 	canvas.addEventListener('pointerleave', () => label.classList.remove('shown'));
 	canvas.addEventListener('pointerup', (event) => {
 		if (!press || Math.hypot(event.clientX - press.x, event.clientY - press.y) > CLICK_SLOP) return;
 		press = null;
-		// At the window, clicks are for looking, not for other props.
+		// Up close to something, clicks don't pick other props.
 		if (saved) return;
 		const picked = pick(event);
 		if (picked.prop === 'gravity') throwLever();
@@ -1380,9 +1593,10 @@ export async function startCabin(stage, ui, laptop) {
 		(event) => {
 			if (gravityOn || saved) return;
 			aim(event);
-			const hit = raycaster.intersectObjects(loose, false)[0];
+			const hit = raycaster.intersectObjects([...loose, ...blobs.keys()], false)[0];
 			if (!hit) return;
 			event.stopImmediatePropagation();
+			if (hit.object === notLose && leaking) return catchCase();
 			press = { x: event.clientX, y: event.clientY };
 			label.classList.remove('shown');
 			hideHint();
@@ -1430,6 +1644,13 @@ export async function startCabin(stage, ui, laptop) {
 		// Thrown only if it was still moving when let go.
 		if (event.type === 'pointerup' && trail.length > 1 && now - last[0] < 0.1 && last[0] > first[0]) {
 			velocity.subVectors(last[1], first[1]).divideScalar(last[0] - first[0]).clampLength(0, THROW.fastest);
+		}
+		// A blob just goes where it's thrown, with no pull back.
+		if (blobs.has(thing)) {
+			moves.delete(thing);
+			blobs.get(thing).velocity.copy(velocity);
+			requestRender();
+			return;
 		}
 		const spin = new Vector3(between(-1, 1), between(-1, 1), between(-1, 1)).setLength(Math.min(THROW.spin, 0.4 + velocity.length() * 1.5));
 		moves.set(thing, { flying: true, at: now, velocity, spin, hover, radius: radii.get(thing) });
@@ -1490,7 +1711,12 @@ export async function startCabin(stage, ui, laptop) {
 			// Square on to the laptop's screen, straight on for the window;
 			// otherwise from wherever the camera is now.
 			const direction = view.screen ? screenNormal.clone() : view.straight ? new Vector3(0, 0, 1) : camera.position.clone().sub(target).normalize();
-			const distance = view.screen ? screenDistance(view.fill) : view.distance;
+			const card = view.fill && !view.screen && new Box3().setFromObject(scene.getObjectByName(`hit-${prop}`));
+			const distance = view.screen
+				? fitDistance(screenCentre, screenNormal, corners, view.fill)
+				: card
+					? fitDistance(target, direction, [card.min, card.max], view.fill)
+					: view.distance;
 			saved = { position: camera.position.clone(), target: controls.target.clone() };
 			controls.enabled = false;
 			label.classList.remove('shown');
@@ -1529,6 +1755,10 @@ export async function startCabin(stage, ui, laptop) {
 			return flight;
 		},
 		useLaptop,
+		readCard,
+		tapeCrack,
+		squeeze,
+		leaking: () => leaking,
 		toggleGravity() {
 			throwLever();
 		},
@@ -1630,20 +1860,20 @@ export async function startCabin(stage, ui, laptop) {
 
 	// ------------------------------------------------------------ using the laptop
 
-	// How far from the screen, square on, for it to fill that much of the view,
-	// whatever the window's shape: measured with a copy of the camera.
+	// How far from a flat thing, square on, for it to fill that much of the
+	// view, whatever the window's shape: measured with a copy of the camera.
 	const probe = camera.clone();
-	function screenDistance(fill) {
+	function fitDistance(centre, normal, points, fill) {
 		// As the view will be on arrival, with the plain lens.
 		probe.copy(camera);
 		probe.zoom = 1;
 		probe.setViewOffset(frame.fullWidth, frame.fullHeight, frame.left, frame.top, frame.width, frame.height);
 		probe.updateProjectionMatrix();
-		probe.position.copy(screenCentre).add(screenNormal);
-		probe.lookAt(screenCentre);
+		probe.position.copy(centre).add(normal);
+		probe.lookAt(centre);
 		probe.updateMatrixWorld();
 		let reach = 0;
-		for (const point of corners) {
+		for (const point of points) {
 			const seen = point.clone().project(probe);
 			reach = Math.max(reach, Math.abs(seen.x), Math.abs(seen.y));
 		}
@@ -1652,7 +1882,7 @@ export async function startCabin(stage, ui, laptop) {
 
 	// Up at the screen, the terminal takes the pointer and keyboard (see the
 	// stage's [data-laptop] styles); Escape or Step back leaves.
-	const back = stage.querySelector('.laptop-back');
+	const back = stage.querySelector('.step-back');
 	const laptopDialog = document.getElementById('laptop-dialog');
 	const narrow = matchMedia('(max-width: 700px)');
 	let usingLaptop = false;
@@ -1691,6 +1921,25 @@ export async function startCabin(stage, ui, laptop) {
 	}
 	back.addEventListener('click', leaveLaptop);
 	document.addEventListener('keydown', (event) => event.key === 'Escape' && leaveLaptop());
+
+	// ------------------------------------------------------------ reading the Morse card
+
+	// Up at the card, scrolling or pinching zooms in on it; Escape or Step
+	// back leaves.
+	let readingCard = false;
+	async function readCard() {
+		if (readingCard || !(await api.flyTo('morse'))) return;
+		readingCard = true;
+		stage.dataset.card = '';
+	}
+	function leaveCard() {
+		if (!readingCard) return;
+		readingCard = false;
+		delete stage.dataset.card;
+		api.flyHome();
+	}
+	back.addEventListener('click', leaveCard);
+	document.addEventListener('keydown', (event) => event.key === 'Escape' && leaveCard());
 
 	// ------------------------------------------------------------ start
 
