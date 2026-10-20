@@ -1296,6 +1296,16 @@ cylinder("sanitiser-neck", bottle + Vector((0, 0, 0.405)), 0.035, 0.05, pump_whi
 cylinder("sanitiser-pump", bottle + Vector((0, 0, 0.45)), 0.022, 0.05, pump_white)
 box("sanitiser-nozzle", bottle + Vector((0, -0.04, 0.475)), (0.045, 0.11, 0.035), pump_white, bevel=0.01)
 
+# A water pouch for the plant: a foil drink pouch with a screw cap. With the
+# gravity off it floats, and squeezing it lets out blobs of water (cabin.js).
+POUCH = Vector((2.25, 0.1, DESK_Z))
+POUCH_TURN = 25
+pouch_facing = Matrix.Rotation(math.radians(POUCH_TURN), 3, "Z")
+box("pouch", POUCH + Vector((0, 0, 0.03)), (0.3, 0.2, 0.05), material("pouch-foil", (0.5, 0.68, 0.82), rough=0.3, metal=0.4, scratches=0.15, prints=0.2), rotation=(0, 0, POUCH_TURN), bevel=0.022)
+cylinder("pouch-spout", POUCH + pouch_facing @ Vector((0.17, 0, 0.03)), 0.022, 0.05, material("pouch-spout", (0.85, 0.85, 0.82), rough=0.4), rotation=(0, 90, POUCH_TURN))
+cylinder("pouch-cap", POUCH + pouch_facing @ Vector((0.205, 0, 0.03)), 0.03, 0.03, material("pouch-cap", (0.9, 0.35, 0.08), rough=0.45), rotation=(0, 90, POUCH_TURN))
+stencil("pouch-label", "WATER", POUCH + Vector((0, 0, 0.0565)), (0, 0, 1), 0.06, material("pouch-ink", (1.4, 1.4, 1.4), rough=0.6), typeface=anton, spin=-POUCH_TURN)
+
 
 def web(center, radius):
 	"""Pattern: a black spider's web printed on a cup, centred on the side that
@@ -1600,6 +1610,22 @@ glass.scale = (*GLASS_SIZE, 1)
 # scene's blending does, so it glows a little less here to match.
 glass_material, glass_export = overlay("glass", glass_path, strength=0.6)
 glass.data.materials.append(glass_material)
+
+# Gaffer tape over the crack, hidden until the player tapes it (cabin.js), so
+# it's in neither the still nor the bake: a strip along the crack from where
+# it starts, and one across it.
+CRACK_START = Vector((1.85, GLASS_Y, 2.22))
+crack_along = Vector((math.cos(math.radians(150)), 0, math.sin(math.radians(150))))
+gaffer = material("gaffer-tape", (0.32, 0.33, 0.34), rough=0.6)
+tape = []
+for i, (along, length, angle) in enumerate([(0.3, 0.68, 150), (0.34, 0.24, 60)]):
+	bpy.ops.mesh.primitive_plane_add(size=1, location=CRACK_START + crack_along * along - Vector((0, 0.004 + 0.002 * i, 0)), rotation=(math.pi / 2, -math.radians(angle), 0))
+	strip = bpy.context.object
+	strip.name = f"crack-tape-{i}"
+	strip.scale = (length, 0.075, 1)
+	finish(strip, gaffer)
+	strip.hide_render = True
+	tape.append(strip)
 
 # A speaker stuck to the glass in its lower left corner, on two suction cups,
 # that beeps along with the light outside (ui.js). Its cable runs down over
@@ -2104,7 +2130,9 @@ PROPS = {
 	"discs": "disc",
 	"sanitiser": "sanitiser",
 	"pens": "cup",
-	"notes": "postit",
+	**{f"note-{i}": f"postit-{i}" for i in range(len(POSTITS))},
+	"crack": "crack-tape",
+	"pouch": "pouch",
 	"gravity": "gravity",
 	"panel": "simon",
 }
@@ -2174,9 +2202,16 @@ bounds = {
 		Vector((max(c.x for c in desk_corners), max(c.y for c in desk_corners), max(c.z for c in desk_corners))),
 	),
 }
+# Where the crack's draught pulls the DO NOT LOSE case (cabin.js), in three.js
+# axes: up past the window's lower left, then along the glass until it
+# sticks over the crack, its back to the glass.
+leak = {
+	"via": [-1.0, 2.6, round(-(GLASS_Y - 0.15), 3)],
+	"stuck": [round(CRACK_START.x - 0.25, 3), round(CRACK_START.z + 0.14, 3), round(-(GLASS_Y - 0.03), 3)],
+}
 os.makedirs(os.path.join(ROOT, "src", "data"), exist_ok=True)
 with open(os.path.join(ROOT, "src", "data", "cabin.json"), "w") as file:
-	json.dump({"still": {"width": 1920, "height": 1080}, "hotspots": hotspots, "bounds": bounds}, file, indent="\t")
+	json.dump({"still": {"width": 1920, "height": 1080}, "hotspots": hotspots, "bounds": bounds, "leak": leak}, file, indent="\t")
 	file.write("\n")
 
 # ---------------------------------------------------------------- the still and the share card
@@ -2543,6 +2578,8 @@ FLOATERS = {
 	"float-biscuit-0": ["biscuit"],
 	"float-paper-0": ["paper-ball"],
 	"float-pick-0": ["pick"],
+	"float-pouch-0": [obj.name for obj in scene.objects if obj.type == "MESH" and obj.name.startswith("pouch")],
+	**{f"float-books-{i}": [f"book-{i}-{part}" for part in ("bottom", "top", "spine", "pages", "title")] for i in range(len(BOOKS))},
 	"gravity-lever": ["gravity-lever", "gravity-lever-knob"],
 }
 movable = []
@@ -2564,7 +2601,7 @@ for name, parts in FLOATERS.items():
 		bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY", center="BOUNDS")
 	movable.append(thing)
 
-outside = space_objects + ship_parts + [screen, phone_screen, card, ship_card, glass, bulb, gravity_lamp, simon_lamp] + simon_buttons + haze_sheets + hits + movable
+outside = space_objects + ship_parts + [screen, phone_screen, card, ship_card, glass, bulb, gravity_lamp, simon_lamp] + simon_buttons + haze_sheets + tape + hits + movable
 for other in bpy.context.selected_objects:
 	other.select_set(False)
 interior = [obj for obj in scene.objects if obj.type == "MESH" and obj not in outside]
@@ -2589,9 +2626,9 @@ bpy.ops.object.mode_set(mode="OBJECT")
 # Small lettering grows instead, or its letters take colour from their
 # neighbours in the texture and break up when zoomed in on.
 island_scale = {"cream-panel": 0.45, "desk-mat": 0.45, "charcoal": 0.45, "rib": 0.45, "frame-paint": 0.75}
-island_scale |= {"stencil-cream": 4, "poster-venue": 4, "poster-small": 8, "ink": 4, "book-ink-dark": 4, "book-ink-light": 4}
+island_scale |= {"stencil-cream": 4, "poster-venue": 4, "poster-small": 8, "ink": 4}
 # The loose things pack into the same texture; their marker lettering grows too.
-loose_scale = {"marker-ink": 12, "disc-sticker": 3}
+loose_scale = {"marker-ink": 12, "disc-sticker": 3, "book-ink-dark": 4, "book-ink-light": 4, "pouch-ink": 4}
 assert set(island_scale) <= {mat.name for mat in cabin.data.materials}, "island_scale names a material the cabin doesn't have"
 assert set(loose_scale) <= {mat.name for thing in movable for mat in thing.data.materials}, "loose_scale names a material no loose thing has"
 for thing, scale in [(cabin, island_scale)] + [(thing, loose_scale) for thing in movable]:

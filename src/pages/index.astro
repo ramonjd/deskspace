@@ -36,7 +36,16 @@ const props = [
 	},
 	{ id: 'sanitiser', label: 'Hand sanitiser', say: 'Kills 99.9% of germs. Out here there were none to begin with.' },
 	{ id: 'pens', label: 'Pens', say: 'Five pens, a pencil and a marker. Two of the pens work.' },
-	{ id: 'notes', label: 'Post-it notes', say: 'Reminders. Most of them overdue.' },
+	// The post-its along the window frame (scene/cabin.py), each with a line,
+	// most of them a nudge toward something.
+	{ id: 'note-0', label: 'Post-it: backups!!', say: 'Two exclamation marks. The discs on the desk are the backups.' },
+	{ id: 'note-1', label: 'Post-it: buy coffee', say: "The galley's closed until Tuesday. Make the mug last." },
+	{ id: 'note-2', label: 'Post-it: water the plant', say: 'Overdue. There is a water pouch on the desk, but in gravity it only makes puddles.' },
+	{ id: 'note-3', label: 'Post-it: tune the G string', say: "It slips flat out here. The tuner's in the guitar's panel." },
+	{ id: 'note-4', label: 'Post-it: call home', say: "Mum keeps asking. Soon, when there's something to tell her." },
+	{ id: 'note-5', label: 'Post-it: fix the crack', say: 'The arrow points at the crack in the glass.' },
+	{ id: 'crack', label: 'Crack in the glass', action: 'crack' },
+	{ id: 'pouch', label: 'Water pouch', action: 'pouch' },
 ];
 
 // The light outside the window blinks the laptop's password in Morse, with

@@ -13,6 +13,7 @@ import {
 	AdditiveBlending,
 	Box3,
 	BufferAttribute,
+	CatmullRomCurve3,
 	BufferGeometry,
 	CanvasTexture,
 	Color,
@@ -29,6 +30,7 @@ import {
 	Raycaster,
 	SRGBColorSpace,
 	Scene,
+	SphereGeometry,
 	Sprite,
 	SpriteMaterial,
 	TextureLoader,
@@ -138,6 +140,15 @@ const GRAVITY = {
 // times the speed it hits; and after home seconds a soft pull draws it back
 // to where it was floating.
 const THROW = { fastest: 5, spin: 8, air: 0.25, spinAir: 0.2, restitution: 0.5, home: 2.5, pull: 1.5 };
+
+// The crack in the window, leaking while the gravity's off: the draught takes
+// DO NOT LOSE to it in seconds, and once there it rattles by rattle metres.
+const LEAK = { seconds: 12, rattle: 0.004 };
+
+// Blobs of water from the pouch: radius metres across, at most most of them
+// at once. One hitting something faster than splat metres a second splats;
+// the plant that drinks one bounces for perk seconds.
+const BLOB = { radius: 0.045, most: 6, splat: 0.35, perk: 0.7 };
 
 export async function startCabin(stage, ui, laptop) {
 	const canvas = stage.querySelector('.live');
@@ -946,6 +957,125 @@ export async function startCabin(stage, ui, laptop) {
 	// What each loose thing is doing, floating or falling, since when, and from where.
 	const moves = new Map();
 	if (progress.has('pick')) pocket();
+
+	// The crack in the window leaks while the gravity's off, until it's taped.
+	// The draught takes DO NOT LOSE: up out of the pile, past the window's lower
+	// left and along the glass, faster as it goes, until it sticks over the
+	// crack, rattling, its sticker against the glass. A press on it catches it,
+	// and it comes back and turns over, sticker out (floatFrom).
+	const notLose = scene.getObjectByName('float-discs-1');
+	const xAxis = new Vector3(1, 0, 0);
+	const tape = ['crack-tape-0', 'crack-tape-1'].map((name) => scene.getObjectByName(name));
+	const tapeMaterial = new MeshBasicMaterial({ color: new Color().setRGB(0.36, 0.36, 0.35, SRGBColorSpace) });
+	for (const strip of tape) {
+		strip.material = tapeMaterial;
+		strip.visible = progress.has('taped');
+	}
+	let leaking = false;
+	function leakFrom(thing, at) {
+		const home = homes.get(thing);
+		const path = new CatmullRomCurve3([
+			home.position.clone(),
+			home.position.clone().add(new Vector3(0, 0.4, 0.15)),
+			new Vector3(...cabinData.leak.via),
+			new Vector3(...cabinData.leak.stuck),
+		]);
+		return { leaking: true, at, path, home: home.quaternion.clone(), tilt: 0 };
+	}
+	function drift(thing, move, now) {
+		const along = Math.min(1, Math.max(0, now - move.at) / LEAK.seconds);
+		const pulled = along ** 2;
+		move.path.getPoint(pulled, thing.position);
+		move.tilt = (Math.PI / 2) * pulled;
+		thing.quaternion.copy(leaning.setFromAxisAngle(xAxis, move.tilt)).multiply(move.home);
+		if (along < 1) return;
+		thing.position.x += LEAK.rattle * Math.sin(now * 61);
+		thing.position.y += LEAK.rattle * Math.sin(now * 47);
+		if (!move.stuck) {
+			move.stuck = true;
+			ui.say('DO NOT LOSE is stuck against the crack, rattling. Grab it before it goes.');
+		}
+	}
+	function catchCase(quiet = false) {
+		if (!leaking) return;
+		leaking = false;
+		const float = floatFrom(notLose, performance.now() / 1000);
+		float.leanFrom = moves.get(notLose)?.tilt ?? 0;
+		float.from.quaternion.copy(homes.get(notLose).quaternion);
+		progress.mark('caught');
+		if (reduceMotion.matches) {
+			notLose.position.copy(float.hover);
+			notLose.quaternion.copy(leaning.setFromAxisAngle(float.axis, float.lean)).multiply(float.from.quaternion);
+			moves.delete(notLose);
+		} else {
+			moves.set(notLose, float);
+		}
+		if (!quiet) ui.say("Caught it: DO NOT LOSE, nearly lost. There's a sticker underneath: 'backup password: flexbox'.");
+		requestRender();
+	}
+	function tapeCrack() {
+		catchCase(true);
+		for (const strip of tape) strip.visible = true;
+		requestRender();
+	}
+
+	// With the gravity off, squeezing the pouch lets out a wobbling blob of
+	// water. A blob can be grabbed and thrown like anything floating: one that
+	// reaches the plant is drunk, and the plant bounces; one that hits anything
+	// else hard enough splats.
+	const pouch = scene.getObjectByName('float-pouch-0');
+	const plant = scene.getObjectByName('float-plant-0');
+	const blobs = new Map();
+	const blobGeometry = new SphereGeometry(BLOB.radius, 16, 12);
+	const blobMaterial = new MeshBasicMaterial({ color: new Color().setRGB(0.7, 0.88, 1, SRGBColorSpace), transparent: true, opacity: 0.75, depthWrite: false });
+	const plantBox = new Box3();
+	let plantPerk = -Infinity;
+	let squeezed = false;
+	function squeeze() {
+		if (reduceMotion.matches) return ui.say('You squeeze out a blob of water and nudge it over to the plant. It drinks it in.');
+		const blob = new Mesh(blobGeometry, blobMaterial);
+		blob.position.copy(pouch.position).add(new Vector3(0, 0.1, 0.05));
+		scene.add(blob);
+		blobs.set(blob, { velocity: new Vector3(between(-0.03, 0.03), 0.06, 0.04), phase: between(0, Math.PI * 2) });
+		radii.set(blob, BLOB.radius);
+		if (blobs.size > BLOB.most) burst(blobs.keys().next().value);
+		if (!squeezed) ui.say('A wobbling blob of water. Throw it at the plant.');
+		squeezed = true;
+		requestRender();
+	}
+	function burst(blob) {
+		blobs.delete(blob);
+		moves.delete(blob);
+		radii.delete(blob);
+		scene.remove(blob);
+		if (held?.thing === blob) held = null;
+	}
+	function moveBlobs(now, seconds) {
+		const perking = (now - plantPerk) / BLOB.perk;
+		plant.scale.setScalar(perking < 1 ? 1 + 0.08 * Math.sin(Math.PI * perking) : 1);
+		if (!blobs.size) return;
+		plantBox.setFromObject(scene.getObjectByName('hit-plant'));
+		for (const [blob, state] of blobs) {
+			const wobble = now * 7 + state.phase;
+			blob.scale.set(1 + 0.12 * Math.sin(wobble), 1 + 0.12 * Math.sin(wobble + 2.1), 1 + 0.12 * Math.sin(wobble + 4.2));
+			if (moves.get(blob)?.held) continue;
+			state.velocity.multiplyScalar(Math.exp(-THROW.air * seconds));
+			blob.position.addScaledVector(state.velocity, seconds);
+			if (plantBox.containsPoint(blob.position)) {
+				burst(blob);
+				plantPerk = now;
+				ui.say('The snake plant drinks it in. It looks pleased with itself.');
+				continue;
+			}
+			let hardest = hitRoom(blob.position, state.velocity, BLOB.radius);
+			for (const box of fixed) hardest = Math.max(hardest, hitBox(box, blob.position, state.velocity, BLOB.radius));
+			if (hardest > BLOB.splat) {
+				burst(blob);
+				ui.bump(hardest);
+				ui.say('Splat.');
+			}
+		}
+	}
 	const leverHome = lever.quaternion.clone();
 	let leverSwing = { at: 0, from: 0, to: 0, angle: 0 };
 	const up = new Vector3(0, 1, 0);
@@ -959,8 +1089,8 @@ export async function startCabin(stage, ui, laptop) {
 
 	// How a thing floats: where it hovers, which way it leans, how fast it
 	// turns. Pens rise clear of the cup and fan out, and the notebook's pen
-	// clear of the notebook; the stacked disc cases spread apart in order and
-	// stay nearly flat, so they don't pass through each other. The bottom
+	// clear of the notebook; the stacked disc cases and books spread apart in
+	// order and stay nearly flat, so they don't pass through each other. The bottom
 	// one, DO NOT LOSE, drifts forward out of the stack and turns over, still,
 	// so the password stuck underneath (scene/cabin.py) reads from the chair.
 	function floatFrom(thing, at, spot) {
@@ -970,6 +1100,9 @@ export async function startCabin(stage, ui, laptop) {
 		if (prop === 'discs' && index > 0) {
 			hover.y += 0.04 + 0.09 * index + between(0, 0.02);
 			lean = between(0, 0.06);
+		} else if (prop === 'books') {
+			hover.y += 0.08 + 0.1 * index + between(0, 0.02);
+			lean = between(0, 0.08);
 		} else if (spot) {
 			hover.copy(spot);
 		} else if (index > 0) {
@@ -1014,7 +1147,8 @@ export async function startCabin(stage, ui, laptop) {
 		thing.position.x += risen * GRAVITY.wander * Math.sin(now * rx + px);
 		thing.position.y += risen * GRAVITY.wander * Math.sin(now * ry + py);
 		thing.position.z += risen * GRAVITY.wander * Math.sin(now * rz + pz);
-		leaning.setFromAxisAngle(move.axis, move.lean * risen);
+		const leanFrom = move.leanFrom ?? 0;
+		leaning.setFromAxisAngle(move.axis, leanFrom + (move.lean - leanFrom) * risen);
 		turning.setFromAxisAngle(up, move.turn * since * risen);
 		thing.quaternion.copy(turning).multiply(leaning).multiply(move.from.quaternion);
 	}
@@ -1169,14 +1303,16 @@ export async function startCabin(stage, ui, laptop) {
 		for (const [thing, move] of moves) {
 			if (move.falling) fallHome(thing, move, now);
 			else if (move.flying) fly(thing, move, now, seconds);
+			else if (move.leaking) drift(thing, move, now);
 			else if (!move.held) floatAbout(thing, move, now);
 		}
+		moveBlobs(now, seconds);
 		swingLever(now);
 	}
 
 	// Things falling or thrown and the lever swinging need every frame;
 	// floating is slow enough for AMBIENT.fps.
-	const quick = (now) => now - leverSwing.at < 0.2 || [...moves.values()].some((move) => move.falling || move.flying);
+	const quick = (now) => now - leverSwing.at < 0.2 || blobs.size > 0 || now - plantPerk < BLOB.perk || [...moves.values()].some((move) => move.falling || move.flying);
 
 	function setGravity(on) {
 		gravityOn = on;
@@ -1187,11 +1323,15 @@ export async function startCabin(stage, ui, laptop) {
 		// Anything held is let go of.
 		held = null;
 		canvas.style.cursor = 'grab';
+		leaking = !on && !progress.has('taped');
+		if (on) for (const blob of [...blobs.keys()]) burst(blob);
 		for (const thing of loose) {
 			if (on) {
 				const move = fallFrom(thing, now);
 				moves.set(thing, move);
 				if (move.impact > 0.4) landings.push(move.time);
+			} else if (thing === notLose && leaking) {
+				moves.set(thing, leakFrom(thing, now + between(0, GRAVITY.stagger)));
 			} else {
 				moves.set(thing, floatFrom(thing, now + between(0, GRAVITY.stagger)));
 			}
@@ -1204,6 +1344,9 @@ export async function startCabin(stage, ui, laptop) {
 				if (move.falling) {
 					thing.position.copy(homes.get(thing).position);
 					thing.quaternion.copy(homes.get(thing).quaternion);
+				} else if (move.leaking) {
+					move.path.getPoint(1, thing.position);
+					thing.quaternion.copy(leaning.setFromAxisAngle(xAxis, Math.PI / 2)).multiply(move.home);
 				} else {
 					thing.position.copy(move.hover);
 					thing.quaternion.copy(leaning.setFromAxisAngle(move.axis, move.lean)).multiply(move.from.quaternion);
@@ -1419,7 +1562,7 @@ export async function startCabin(stage, ui, laptop) {
 		if (event.pointerType !== 'mouse' || event.buttons || saved) return;
 		showPicked(pick(event), event);
 		// Floating things can be grabbed.
-		if (!gravityOn && raycaster.intersectObjects(loose, false).length) canvas.style.cursor = 'grab';
+		if (!gravityOn && raycaster.intersectObjects([...loose, ...blobs.keys()], false).length) canvas.style.cursor = 'grab';
 	});
 	canvas.addEventListener('pointerleave', () => label.classList.remove('shown'));
 	canvas.addEventListener('pointerup', (event) => {
@@ -1450,9 +1593,10 @@ export async function startCabin(stage, ui, laptop) {
 		(event) => {
 			if (gravityOn || saved) return;
 			aim(event);
-			const hit = raycaster.intersectObjects(loose, false)[0];
+			const hit = raycaster.intersectObjects([...loose, ...blobs.keys()], false)[0];
 			if (!hit) return;
 			event.stopImmediatePropagation();
+			if (hit.object === notLose && leaking) return catchCase();
 			press = { x: event.clientX, y: event.clientY };
 			label.classList.remove('shown');
 			hideHint();
@@ -1500,6 +1644,13 @@ export async function startCabin(stage, ui, laptop) {
 		// Thrown only if it was still moving when let go.
 		if (event.type === 'pointerup' && trail.length > 1 && now - last[0] < 0.1 && last[0] > first[0]) {
 			velocity.subVectors(last[1], first[1]).divideScalar(last[0] - first[0]).clampLength(0, THROW.fastest);
+		}
+		// A blob just goes where it's thrown, with no pull back.
+		if (blobs.has(thing)) {
+			moves.delete(thing);
+			blobs.get(thing).velocity.copy(velocity);
+			requestRender();
+			return;
 		}
 		const spin = new Vector3(between(-1, 1), between(-1, 1), between(-1, 1)).setLength(Math.min(THROW.spin, 0.4 + velocity.length() * 1.5));
 		moves.set(thing, { flying: true, at: now, velocity, spin, hover, radius: radii.get(thing) });
@@ -1605,6 +1756,9 @@ export async function startCabin(stage, ui, laptop) {
 		},
 		useLaptop,
 		readCard,
+		tapeCrack,
+		squeeze,
+		leaking: () => leaking,
 		toggleGravity() {
 			throwLever();
 		},
