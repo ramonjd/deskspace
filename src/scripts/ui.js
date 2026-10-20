@@ -408,6 +408,29 @@ export function initCabin(stage) {
 		if (audio?.on) knock(audio.ctx.currentTime, 3200, 0.4);
 	}
 
+	// A message arriving on the laptop: two soft notes, and a line to say so.
+	// Any step a message waits for (Laptop.astro's data-after) brings one.
+	const messageSteps = new Set([...document.querySelectorAll('.os-messages article[data-after]')].map((article) => article.dataset.after));
+	function chime() {
+		say('New message on the laptop.');
+		if (!audio?.on) return;
+		const { ctx, effects } = audio;
+		[880, 1320].forEach((pitch, i) => {
+			const note = ctx.createOscillator();
+			note.frequency.value = pitch;
+			const level = ctx.createGain();
+			const when = ctx.currentTime + i * 0.14;
+			level.gain.setValueAtTime(0, when);
+			level.gain.linearRampToValueAtTime(0.12, when + 0.01);
+			level.gain.exponentialRampToValueAtTime(0.001, when + 0.5);
+			note.connect(level);
+			level.connect(effects);
+			note.start(when);
+			note.stop(when + 0.55);
+		});
+	}
+	progress.listen((step) => messageSteps.has(step) && setTimeout(chime, 1500));
+
 	// The lever thrown while manual gravity control is locked out: a clunk,
 	// and nothing else.
 	function gravityRefused() {
@@ -609,7 +632,6 @@ export function initCabin(stage) {
 				return;
 			}
 			progress.mark('song');
-			setTimeout(() => say('New message on the laptop.'), 1800);
 		}
 	}
 
@@ -795,10 +817,7 @@ export function initCabin(stage) {
 	progress.listen((step) => {
 		showCall();
 		if (step === 'saved') withoutScene(() => progress.mark('clear'));
-		if (step === 'clear') {
-			setTimeout(() => say('New message on the laptop.'), 1200);
-			setTimeout(ring, 45000);
-		}
+		if (step === 'clear') setTimeout(ring, 45000);
 		if (step === 'read-ai-thanks') setTimeout(ring, 4000);
 		if (step === 'called') withoutScene(theEnd);
 	});

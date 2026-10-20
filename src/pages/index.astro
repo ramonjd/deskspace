@@ -124,8 +124,7 @@ const signalStyle = `<style>
 
 			/* A box the size and position of the still as object-fit: cover
 			   draws it, so percentages from the still line up with the picture. */
-			.layer,
-			.wake-frame {
+			.layer {
 				--w: max(100cqw, 177.778cqh);
 				--h: max(100cqh, 56.25cqw);
 				position: absolute;
@@ -190,9 +189,8 @@ const signalStyle = `<style>
 				background: radial-gradient(circle at var(--x, 20%) var(--y, 13%), rgb(0 0 0 / 0.09), rgb(0 0 0 / 0.06) 35%, transparent 80%);
 			}
 
-			/* Waking up at the desk while the live scene loads: black, with the
-			   light outside blinking where it will be, and the eyes opening a
-			   little at each step of loading (the script below). --open is how
+			/* Waking up at the desk while the live scene loads: black, and the
+			   eyes opening a little at each step of loading (the script below). --open is how
 			   far, from shut (0%) to wide open (160%); the still is blurred
 			   by --sleepy until they're open. Shown only with JavaScript, and
 			   given up on by itself after 20 seconds, whatever happens. */
@@ -874,11 +872,7 @@ const signalStyle = `<style>
 			<div class="grain" aria-hidden="true"></div>
 			<div class="dim" aria-hidden="true"></div>
 			<!-- Waking up while the live scene loads (the script below). -->
-			<div class="wake" aria-hidden="true">
-				<div class="wake-frame">
-					<span class="beacon" style={`left:${hotspots.beacon.left}%;top:${hotspots.beacon.top}%`}></span>
-				</div>
-			</div>
+			<div class="wake" aria-hidden="true"></div>
 			<!-- Without the live scene, narrow screens crop most props out of view
 			     and touch screens can't hover, so they get buttons for the props. -->
 			<div class="controls">
