@@ -2354,74 +2354,143 @@ ship = bpy.data.objects.new("ship", None)
 scene.collection.objects.link(ship)
 ship.matrix_world = Matrix.Translation(ship_place) @ Matrix((tail, flank, tail.cross(flank))).transposed().to_4x4()
 bpy.context.view_layer.update()
-# GOAT Capital's conference liner: an old ore hauler the investors bought
-# cheap and did up, a long battered red hull with whatever they wanted
-# bolted on wherever it fitted. Its bolt-ons are placed by a random number
-# generator of its own, so the rest of the scene's random choices don't move.
-# Parts are placed in its own terms: nose towards -x, the flank the camera
-# sees at -y, up +z. It's built a little larger than it's shown (SHIP_SCALE).
+# GOAT Capital's conference liner, as the investors bought it: an old ore
+# crawler welded to whatever else was going cheap. A riveted dagger of a
+# hull with a saw-toothed spine and a ram at the prow, a brass porthole for an
+# eye, a tower in tiers at the stern, the crawler's slab of a belly still on
+# its tracks underneath, patches and pipes wherever they were needed, and
+# three engines that don't match. Its few random choices come from a random
+# number generator of its own, so the rest of the scene's don't move. Parts
+# are placed in its own terms: nose towards -x, the flank the camera sees at
+# -y, up +z. It's built a little larger than it's shown (SHIP_SCALE).
 SHIP_SCALE = 0.78
 ship.scale = (SHIP_SCALE,) * 3
 bpy.context.view_layer.update()
 bolt_ons = random.Random(715120)
-ship_red = material("ship-red", (0.5, 0.06, 0.045), rough=0.55, grime=0.45, scratches=0.08, dirt=0.45, pattern=grid(0.5, 0.012, (0.26, 0.035, 0.03), axes=("X", "Y", "Z")))
-ship_grey = material("ship-grey", (0.5, 0.5, 0.47), rough=0.5, grime=0.4, scratches=0.25, dirt=0.4)
-ship_dark = material("ship-dark", (0.1, 0.1, 0.11), rough=0.4, metal=0.5, scratches=0.2, dirt=0.3)
+ship_red = material("ship-red", (0.42, 0.06, 0.04), rough=0.6, grime=0.6, scratches=0.1, dirt=0.55, pattern=grid(0.4, 0.014, (0.2, 0.03, 0.025), axes=("X", "Y", "Z")))
+ship_iron = material("ship-iron", (0.16, 0.15, 0.14), rough=0.55, metal=0.4, scratches=0.2, grime=0.5, dirt=0.5, pattern=grid(0.3, 0.012, (0.06, 0.055, 0.05), axes=("X", "Y", "Z")))
+ship_grey = material("ship-grey", (0.45, 0.45, 0.42), rough=0.5, grime=0.5, scratches=0.25, dirt=0.45)
+ship_dark = material("ship-dark", (0.08, 0.08, 0.09), rough=0.4, metal=0.5, scratches=0.2, dirt=0.3)
+ship_brass = material("ship-brass", (0.62, 0.42, 0.16), rough=0.35, metal=0.8, scratches=0.2, grime=0.3)
 ship_glow = material("ship-glow", (0, 0, 0), emit=(0.45, 0.8, 1.0), strength=6)
 ship_lit = material("ship-window", (0, 0, 0), emit=(1.0, 0.82, 0.5), strength=2.5)
 ship_unlit = material("ship-window-dark", (0.03, 0.035, 0.04), rough=0.15)
-ship_paints = [ship_grey, material("ship-yellow", (0.75, 0.55, 0.08), rough=0.5, grime=0.4), material("ship-blue", (0.16, 0.24, 0.32), rough=0.5, grime=0.4), material("ship-rust", (0.35, 0.16, 0.07), rough=0.7, grime=0.5)]
+ship_rust = material("ship-rust", (0.33, 0.16, 0.07), rough=0.75, grime=0.6, dirt=0.5, pattern=grid(0.35, 0.012, (0.15, 0.07, 0.03), axes=("X", "Y", "Z")))
+ship_paints = [ship_grey, material("ship-yellow", (0.7, 0.5, 0.08), rough=0.5, grime=0.5), material("ship-blue", (0.16, 0.24, 0.32), rough=0.5, grime=0.5), ship_rust]
+
+
+def ship_slab(name, outline, width, mat, bevel=0.0):
+	"""A slab of the ship: the (x, z) outline, width deep across it."""
+	shape = bmesh.new()
+	near = [shape.verts.new((x, -width / 2, z)) for x, z in outline]
+	far = [shape.verts.new((x, width / 2, z)) for x, z in outline]
+	shape.faces.new(near)
+	shape.faces.new(far[::-1])
+	for i in range(len(outline)):
+		j = (i + 1) % len(outline)
+		shape.faces.new((near[j], near[i], far[i], far[j]))
+	bmesh.ops.recalc_face_normals(shape, faces=shape.faces)
+	mesh = bpy.data.meshes.new(name)
+	shape.to_mesh(mesh)
+	shape.free()
+	obj = bpy.data.objects.new(name, mesh)
+	scene.collection.objects.link(obj)
+	obj.parent = ship
+	return finish(obj, mat, bevel)
+
+
+# The hull side on: low at the prow, tall at the stern, its flank flat for the
+# livery. hull_top is the height of its top edge along it.
+HULL_TOP = [(-2.9, 0.0), (-1.0, 0.27), (2.25, 0.52)]
+HULL = HULL_TOP + [(2.25, -0.56), (-1.2, -0.32), (-2.6, -0.08)]
+
+
+def hull_top(x):
+	(ax, az), (bx, bz) = HULL_TOP[:2] if x < HULL_TOP[1][0] else HULL_TOP[1:]
+	return az + (bz - az) * (x - ax) / (bx - ax)
+
+
 ship_parts = [
-	box("ship-hull", (0, 0, 0), (4.4, 0.8, 0.8), ship_red, bevel=0.12, parent=ship),
-	box("ship-keel", (0.25, 0, -0.5), (3.4, 0.5, 0.3), ship_grey, bevel=0.06, parent=ship),
-	sphere("ship-nose", (-2.15, 0, 0.04), 1, ship_red, scale=(0.62, 0.4, 0.42), parent=ship),
-	box("ship-cockpit", (-2.25, -0.35, 0.2), (0.42, 0.04, 0.11), material("ship-cockpit", (0.01, 0.015, 0.02), rough=0.5, emit=(0.1, 0.35, 0.75), strength=1.2), parent=ship),
-	box("ship-bumper", (-2.62, 0, -0.18), (0.22, 0.46, 0.2), ship_paints[1], bevel=0.03, parent=ship),
-	sphere("ship-dome", (-0.25, 0, 0.36), 1, material("ship-dome", (0.02, 0.025, 0.03), rough=0.05, emit=(0.9, 0.4, 0.12), strength=0.6), scale=(0.75, 0.32, 0.36), parent=ship),
-	box("ship-fin", (1.65, 0, 0.72), (1.0, 0.05, 0.6), ship_red, rotation=(0, -15, 0), bevel=0.02, parent=ship),
-	box("ship-engine-block", (2.45, 0, 0), (0.5, 0.86, 0.84), ship_dark, bevel=0.06, parent=ship),
+	ship_slab("ship-hull", HULL, 0.82, ship_red, bevel=0.03),
+	# The crawler's belly: sloped above, slab-sided below.
+	ship_slab("ship-belly", [(-0.55, -1.0), (2.15, -1.0), (1.95, -0.42), (-0.25, -0.42)], 0.64, ship_rust, bevel=0.02),
+	# The tower at the stern, in tiers, with the bridge on top.
+	box("ship-tier-0", (1.45, 0, 0.5), (1.25, 0.62, 0.22), ship_iron, bevel=0.02, parent=ship),
+	box("ship-tier-1", (1.62, 0, 0.695), (0.8, 0.46, 0.17), ship_iron, bevel=0.02, parent=ship),
+	box("ship-bridge", (1.72, 0, 0.845), (0.48, 0.3, 0.14), ship_iron, bevel=0.02, parent=ship),
+	box("ship-bridge-window", (1.72, -0.152, 0.85), (0.36, 0.01, 0.035), ship_lit, parent=ship),
+	cylinder("ship-mast", (1.86, 0, 1.075), 0.02, 0.32, ship_grey, parent=ship),
+	sphere("ship-dish", (1.56, 0, 0.98), 0.16, ship_grey, scale=(1, 1, 0.35), rotation=(0, 30, 0), parent=ship),
+	box("ship-crate", (0.55, 0.05, hull_top(0.55) + 0.1), (0.3, 0.4, 0.22), ship_paints[1], bevel=0.02, parent=ship),
 ]
-# Three engines that don't match: a big one in the middle, two small ones
-# above and below. Each ends in a glowing nozzle, where the live scene's
+# Its tracks, still on, two units under the belly with their road wheels showing.
+for i, x in enumerate((0.15, 1.25)):
+	ship_parts.append(box(f"ship-track-{i}", (x, 0, -1.1), (0.95, 0.54, 0.22), ship_dark, bevel=0.1, segments=4, parent=ship))
+	for k in range(4):
+		ship_parts.append(cylinder(f"ship-wheel-{i}-{k}", (x - 0.33 + 0.22 * k, -0.275, -1.1), 0.075, 0.03, ship_grey, rotation=(90, 0, 0), vertices=16, parent=ship))
+# The saw-toothed spine along the top, and the ram at the prow.
+for i in range(11):
+	x = -2.45 + 0.27 * i
+	ship_parts.append(box(f"ship-tooth-{i}", (x, 0, hull_top(x)), (0.13, 0.05, 0.13), ship_iron, rotation=(0, 45, 0), parent=ship))
+ship_parts.append(ship_slab("ship-ram", [(-3.4, -0.06), (-2.75, 0.07), (-2.55, 0.02), (-2.6, -0.16)], 0.36, ship_iron, bevel=0.015))
+for i in range(3):
+	ship_parts.append(box(f"ship-ram-tooth-{i}", (-3.15 + 0.17 * i, 0, -0.09 - 0.025 * i), (0.08, 0.3, 0.08), ship_iron, rotation=(0, 45, 0), parent=ship))
+# The eye: a brass porthole near the prow, glowing, with bars across it.
+EYE = Vector((-1.95, -0.43, -0.03))
+bpy.ops.mesh.primitive_torus_add(major_radius=0.15, minor_radius=0.025, major_segments=32, minor_segments=8, location=EYE, rotation=(math.pi / 2, 0, 0))
+rim = bpy.context.object
+rim.name = "ship-eye-rim"
+rim.parent = ship
+ship_parts.append(finish(rim, ship_brass, smooth=40))
+ship_parts.append(cylinder("ship-eye-glass", EYE + Vector((0, 0.01, 0)), 0.13, 0.01, material("ship-eye", (0.02, 0.02, 0.025), rough=0.6, emit=(1.0, 0.45, 0.1), strength=0.7), rotation=(90, 0, 0), parent=ship))
+for k in range(4):
+	ship_parts.append(box(f"ship-eye-bar-{k}", EYE + Vector((0, -0.005, 0)), (0.27, 0.012, 0.016), ship_brass, rotation=(0, 45 * k, 0), parent=ship))
+# Patches over old damage, in whatever paint was going, and pipes run along
+# the outside.
+for i, (x, z, w, h) in enumerate([(-2.45, -0.02, 0.3, 0.1), (-1.45, 0.08, 0.25, 0.12), (1.6, -0.25, 0.4, 0.18), (1.9, 0.15, 0.3, 0.2), (0.4, -0.8, 0.5, 0.2), (1.5, -0.84, 0.35, 0.14)]):
+	ship_parts.append(box(f"ship-patch-{i}", (x, -0.418 if z > -0.42 else -0.328, z), (w, 0.012, h), bolt_ons.choice(ship_paints), parent=ship))
+for i, z in enumerate((-0.3, -0.35)):
+	ship_parts.append(cylinder(f"ship-pipe-{i}", (0.875, -0.425, z), 0.022, 2.55, ship_grey, rotation=(0, 90, 0), vertices=12, parent=ship))
+# More slapped on: an iron skirt along the hull's bottom edge, tanks strapped
+# against the belly's sloped front, an exhaust stack, and a crane boom off the
+# tower.
+HULL_BOTTOM = [(-2.6, -0.08), (-1.2, -0.32), (2.25, -0.56)]
+for i, ((ax, az), (bx, bz)) in enumerate(zip(HULL_BOTTOM, HULL_BOTTOM[1:])):
+	length = math.hypot(bx - ax, bz - az)
+	ship_parts.append(box(f"ship-skirt-{i}", ((ax + bx) / 2, -0.42, (az + bz) / 2 + 0.035), (length, 0.03, 0.07), ship_iron, rotation=(0, -math.degrees(math.atan2(bz - az, bx - ax)), 0), parent=ship))
+for i, (x, z) in enumerate(((-0.57, -0.89), (-0.44, -0.67))):
+	ship_parts.append(cylinder(f"ship-belly-tank-{i}", (x, -0.05, z), 0.1, 0.5, ship_paints[2 * i], rotation=(90, 0, 0), bevel=0.02, parent=ship))
+	ship_parts.append(cylinder(f"ship-belly-strap-{i}", (x, -0.05, z), 0.105, 0.03, ship_dark, rotation=(90, 0, 0), parent=ship))
+ship_parts.append(cylinder("ship-stack", (1.15, 0.1, 0.78), 0.07, 0.36, ship_dark, bevel=0.01, parent=ship))
+ship_parts.append(cylinder("ship-stack-cap", (1.15, 0.1, 0.97), 0.09, 0.03, ship_iron, parent=ship))
+BOOM = (Vector((1.3, -0.2, 0.62)), Vector((0.55, -0.2, 1.05)))
+ship_parts.append(cylinder("ship-boom", (BOOM[0] + BOOM[1]) / 2, 0.025, (BOOM[1] - BOOM[0]).length, ship_paints[1], rotation=(0, math.degrees(math.atan2(BOOM[1].x - BOOM[0].x, BOOM[1].z - BOOM[0].z)), 0), vertices=10, parent=ship))
+ship_parts.append(cylinder("ship-boom-cable", BOOM[1] - Vector((0, 0, 0.17)), 0.006, 0.34, ship_dark, vertices=6, parent=ship))
+ship_parts.append(box("ship-boom-hook", BOOM[1] - Vector((0, 0, 0.36)), (0.06, 0.03, 0.06), ship_dark, parent=ship))
+# Three engines that don't match: a big one in the middle, a small one above
+# and one off the belly. Each ends in a glowing nozzle, where the live scene's
 # plume starts (SHIP_NOZZLES).
 SHIP_NOZZLES = []
-for i, (z, radius, length) in enumerate([(0.05, 0.28, 0.5), (0.47, 0.13, 0.36), (-0.4, 0.15, 0.42)]):
-	x = 2.7 + length / 2
+for i, (base, z, radius, length) in enumerate([(2.25, 0.0, 0.28, 0.5), (2.25, 0.38, 0.12, 0.34), (2.15, -0.75, 0.17, 0.42)]):
+	x = base + length / 2
 	ship_parts.append(cylinder(f"ship-engine-{i}", (x, 0, z), radius, length, ship_dark, rotation=(0, 90, 0), bevel=0.02, parent=ship))
 	ship_parts.append(cylinder(f"ship-nozzle-{i}", (x + length / 2 + 0.005, 0, z), radius * 0.82, 0.01, ship_glow, rotation=(0, 90, 0), parent=ship))
 	SHIP_NOZZLES.append((Vector((x + length / 2 + 0.01, 0, z)), radius))
-# Bolt-ons: containers, tanks and boxes along the top behind the dome and
-# under the keel, in mismatched paint, a dish on a mast, and antennas.
-for i in range(6):
-	x = bolt_ons.uniform(0.5, 2.0) if i < 4 else bolt_ons.uniform(-1.4, 1.6)
-	top = i < 4
-	size = (bolt_ons.uniform(0.35, 0.75), bolt_ons.uniform(0.3, 0.6), bolt_ons.uniform(0.18, 0.34))
-	z = 0.4 + size[2] / 2 if top else -0.65 - size[2] / 2
-	paint = bolt_ons.choice(ship_paints)
-	if bolt_ons.random() < 0.35:
-		ship_parts.append(cylinder(f"ship-tank-{i}", (x, 0, z), size[2] / 2 + 0.03, size[0], paint, rotation=(0, 90, 0), bevel=0.02, parent=ship))
-	else:
-		ship_parts.append(box(f"ship-module-{i}", (x, 0, z), size, paint, bevel=0.03, parent=ship))
-ship_parts.append(cylinder("ship-mast", (-1.15, 0, 0.62), 0.025, 0.5, ship_grey, parent=ship))
-ship_parts.append(sphere("ship-dish", (-1.15, 0, 0.92), 0.22, ship_grey, scale=(1, 1, 0.35), rotation=(0, -35, 0), parent=ship))
-for i in range(3):
-	x, height = bolt_ons.uniform(-0.9, 1.2), bolt_ons.uniform(0.3, 0.7)
-	ship_parts.append(cylinder(f"ship-antenna-{i}", (x, 0.1, 0.4 + height / 2), 0.012, height, ship_grey, vertices=8, parent=ship))
-for i in range(7):
-	ship_parts.append(box(f"ship-radiator-{i}", (-0.9 + i * 0.16, 0, -0.78), (0.035, 0.42, 0.28), ship_grey, parent=ship))
 # Its attitude thrusters, small blocks the live scene puffs from (SHIP_THRUSTERS).
-SHIP_THRUSTERS = [Vector(at) for at in [(-2.3, -0.2, 0.42), (-2.25, -0.2, -0.38), (2.2, -0.45, 0.45), (1.9, -0.3, -0.72)]]
+SHIP_THRUSTERS = [Vector(at) for at in [(-2.3, -0.42, 0.06), (-2.25, -0.42, -0.12), (2.05, -0.42, 0.42), (1.9, -0.33, -0.95)]]
 for i, at in enumerate(SHIP_THRUSTERS):
 	ship_parts.append(box(f"ship-thruster-{i}", at, (0.1, 0.1, 0.08), ship_dark, parent=ship))
-# Passenger windows along both decks, some lit, some not.
-for deck, (z, y, x_from, x_to) in enumerate([(0.27, -0.405, -0.75, 2.05), (-0.5, -0.255, -1.25, 1.9)]):
-	x = x_from
-	while x < x_to:
-		ship_parts.append(box(f"ship-window-{deck}-{len(ship_parts)}", (x, y, z), (0.09, 0.01, 0.07), ship_lit if bolt_ons.random() < 0.72 else ship_unlit, parent=ship))
-		x += 0.17
-# Navigation lights: red on the nose, green on the fin, a white strobe on
-# the tail. The live scene lights and blinks them (SHIP_LIGHTS).
-SHIP_LIGHTS = [((-2.55, -0.2, -0.05), "red"), ((1.85, -0.03, 1.02), "green"), ((2.55, -0.2, 0.48), "white")]
+# Passenger windows along the top of the flank, and portholes in the belly,
+# some lit, some not.
+x = 0.0
+while x < 2.1:
+	ship_parts.append(box(f"ship-window-{len(ship_parts)}", (x, -0.415, hull_top(x) - 0.12), (0.07, 0.01, 0.06), ship_lit if bolt_ons.random() < 0.7 else ship_unlit, parent=ship))
+	x += 0.15
+for i in range(7):
+	ship_parts.append(cylinder(f"ship-porthole-{i}", (-0.1 + 0.3 * i, -0.33, -0.55), 0.04, 0.012, ship_lit if bolt_ons.random() < 0.6 else ship_unlit, rotation=(90, 0, 0), vertices=16, parent=ship))
+# Navigation lights: red at the prow, green on the mast, a white strobe on the
+# stern. The live scene lights and blinks them (SHIP_LIGHTS).
+SHIP_LIGHTS = [((-2.88, -0.06, 0.0), "red"), ((1.86, 0, 1.25), "green"), ((2.3, -0.3, 0.5), "white")]
 for i, (at, colour) in enumerate(SHIP_LIGHTS):
 	ship_parts.append(sphere(f"ship-light-{colour}", at, 0.04, ship_dark, segments=12, parent=ship))
 # The livery: the hull number large on the flank, and GOAT Capital's name
@@ -2471,7 +2540,7 @@ logo_texture.image = bpy.data.images.load(goat_picture(os.path.join(ROOT, "scene
 logo_bsdf = logo.node_tree.nodes["Principled BSDF"]
 logo.node_tree.links.new(logo_texture.outputs["Color"], logo_bsdf.inputs["Base Color"])
 logo.node_tree.links.new(logo_texture.outputs["Alpha"], logo_bsdf.inputs["Alpha"])
-bpy.ops.mesh.primitive_plane_add(size=1, location=(-1.15, -0.406, 0.08), rotation=(math.pi / 2, 0, 0))
+bpy.ops.mesh.primitive_plane_add(size=1, location=(-0.85, -0.416, 0.06), rotation=(math.pi / 2, 0, 0))
 goat_decal = bpy.context.object
 goat_decal.name = "ship-logo"
 goat_decal.scale = (0.56, 0.35, 1)
@@ -2479,7 +2548,7 @@ goat_decal.data.materials.append(logo)
 goat_decal.parent = ship
 ship_parts.append(goat_decal)
 paint_white = material("ship-white", (0.9, 0.88, 0.82), rough=0.6)
-for name, text, at, size, paint in [("ship-name", "GOAT CAPITAL", (-1.15, -0.407, -0.2), 0.11, paint_white), ("ship-number", "715120", (0.55, -0.407, -0.03), 0.34, material("ship-ink", (0.03, 0.03, 0.035), rough=0.6))]:
+for name, text, at, size, paint in [("ship-name", "GOAT CAPITAL", (-0.85, -0.417, -0.21), 0.11, paint_white), ("ship-number", "715120", (0.65, -0.417, -0.04), 0.34, material("ship-ink", (0.03, 0.03, 0.035), rough=0.6))]:
 	lettering = stencil(name, text, at, (0, -1, 0), size, paint, typeface=anton)
 	lettering.parent = ship
 	ship_parts.append(lettering)
