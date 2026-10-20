@@ -2813,6 +2813,119 @@ render_alone(moons, os.path.join(ROOT, "public", "scene", "sky.webp"), "WEBP", p
 scene.camera = camera
 bpy.data.objects.remove(panorama)
 
+# ---------------------------------------------------------------- visitors
+
+# Things that drift past outside now and then in the live scene (cabin.js),
+# once each: a lost teddy bear, and Voyager 1, a very long way off course.
+# Each is built out along the camera's line of sight, as far out as the
+# ship, where the cabin's lamps don't reach it; lit like the ship; drawn on
+# its own on a transparent background, cropped round it; and taken away.
+VISITOR_AT = CAMERA + (CAMERA_TARGET - CAMERA).normalized() * SHIP_DEPTH
+
+
+def visitor_frame(name, yaw, roll, scale, pitch=0.0):
+	"""An empty out there, its -y facing the camera and +z up, turned pitch
+	about +y, then roll about +x, then yaw about +z (degrees), and scaled."""
+	toward = (CAMERA - VISITOR_AT).normalized()
+	across = (Vector((1, 0, 0)) - toward * toward.x).normalized()
+	frame = bpy.data.objects.new(name, None)
+	scene.collection.objects.link(frame)
+	frame.matrix_world = (
+		Matrix.Translation(VISITOR_AT)
+		@ Matrix((across, -toward, across.cross(-toward))).transposed().to_4x4()
+		@ Matrix.Rotation(math.radians(yaw), 4, "Z")
+		@ Matrix.Rotation(math.radians(roll), 4, "X")
+		@ Matrix.Rotation(math.radians(pitch), 4, "Y")
+		@ Matrix.Scale(scale, 4)
+	)
+	bpy.context.view_layer.update()
+	return frame
+
+
+def render_visitor(frame, wide):
+	"""Its picture, public/scene/<name>.webp, about wide pixels across."""
+	parts = [obj for obj in scene.objects if obj.parent == frame]
+	for obj in parts:
+		sunlit.objects.link(obj)
+		shiplit.objects.link(obj)
+	bpy.context.view_layer.update()
+	seen = [world_to_camera_view(scene, camera, obj.matrix_world @ Vector(corner)) for obj in parts for corner in obj.bound_box]
+	low_x, high_x = min(p.x for p in seen) - 0.01, max(p.x for p in seen) + 0.01
+	low_y, high_y = min(p.y for p in seen) - 0.01, max(p.y for p in seen) + 0.01
+	scene.render.film_transparent = True
+	scene.render.use_border = True
+	scene.render.use_crop_to_border = True
+	scene.render.border_min_x, scene.render.border_max_x = low_x, high_x
+	scene.render.border_min_y, scene.render.border_max_y = low_y, high_y
+	scene.render.image_settings.color_mode = "RGBA"
+	render_alone(parts, os.path.join(ROOT, "public", "scene", f"{frame.name}.webp"), "WEBP", percentage=math.ceil((wide / 2 if FAST else wide) * 100 / ((high_x - low_x) * 1920)))
+	scene.render.film_transparent = False
+	scene.render.use_border = False
+	scene.render.image_settings.color_mode = "RGB"
+	for obj in parts + [frame]:
+		bpy.data.objects.remove(obj)
+
+
+# A teddy bear in a red scarf, tumbling.
+teddy = visitor_frame("teddy", 25, 15, 8)
+fur = material("teddy-fur", (0.42, 0.24, 0.11), rough=1.0, grain=0.5, grain_scale=90, bump=0.7, bump_scale=300, dirt=0.3)
+muzzle = material("teddy-muzzle", (0.66, 0.47, 0.28), rough=1.0, grain=0.4, grain_scale=90, bump=0.5, bump_scale=300)
+button = material("teddy-eye", (0.01, 0.01, 0.012), rough=0.15)
+scarf = material("teddy-scarf", (0.5, 0.05, 0.04), rough=0.85, grain=0.3, grain_scale=40, bump=0.3, bump_scale=120)
+sphere("teddy-body", (0, 0, 0), 1, fur, scale=(0.17, 0.14, 0.2), parent=teddy)
+sphere("teddy-belly", (0, -0.1, -0.01), 1, muzzle, scale=(0.11, 0.05, 0.13), parent=teddy)
+sphere("teddy-head", (0, 0, 0.27), 0.13, fur, parent=teddy)
+sphere("teddy-muzzle", (0, -0.11, 0.245), 1, muzzle, scale=(0.065, 0.055, 0.05), parent=teddy)
+sphere("teddy-nose", (0, -0.165, 0.265), 1, button, scale=(0.025, 0.015, 0.018), parent=teddy)
+for side in (-1, 1):
+	sphere(f"teddy-eye-{side}", (side * 0.048, -0.112, 0.305), 0.017, button, parent=teddy)
+	sphere(f"teddy-ear-{side}", (side * 0.1, 0, 0.375), 1, fur, scale=(0.05, 0.03, 0.05), parent=teddy)
+	sphere(f"teddy-ear-in-{side}", (side * 0.1, -0.02, 0.372), 1, muzzle, scale=(0.03, 0.015, 0.03), parent=teddy)
+	sphere(f"teddy-arm-{side}", (side * 0.18, -0.02, 0.05), 1, fur, scale=(0.05, 0.05, 0.12), rotation=(0, side * 40, 0), parent=teddy)
+	sphere(f"teddy-leg-{side}", (side * 0.09, -0.06, -0.18), 1, fur, scale=(0.06, 0.06, 0.1), rotation=(50, 0, 0), parent=teddy)
+	sphere(f"teddy-pad-{side}", (side * 0.09, -0.135, -0.23), 1, muzzle, scale=(0.045, 0.012, 0.045), rotation=(50, 0, 0), parent=teddy)
+bpy.ops.mesh.primitive_torus_add(major_radius=0.1, minor_radius=0.026, major_segments=32, minor_segments=10, location=(0, 0, 0.165))
+wrap = bpy.context.object
+wrap.name = "teddy-scarf"
+wrap.parent = teddy
+finish(wrap, scarf, smooth=60)
+box("teddy-scarf-end", (0.05, -0.1, 0.09), (0.05, 0.02, 0.13), scarf, rotation=(0, 15, 0), bevel=0.008, parent=teddy)
+render_visitor(teddy, 640)
+
+# Voyager 1: its 3.7 m dish on the ten-sided bus, the Golden Record on its
+# side, the three RTGs out on one boom and the science instruments on the
+# other, the long magnetometer boom and the two radio antennas.
+# Its dish turned towards the sun and a little towards you, so it shows white.
+voyager = visitor_frame("voyager", 0, 50, 1.0, pitch=-40)
+dish_white = material("voyager-dish", (0.82, 0.82, 0.78), rough=0.5, grime=0.25, scratches=0.1)
+bus_dark = material("voyager-bus", (0.07, 0.065, 0.06), rough=0.45, metal=0.5, scratches=0.2)
+foil_gold = material("voyager-foil", (0.62, 0.45, 0.15), rough=0.3, metal=0.9, bump=0.4, bump_scale=60)
+boom_grey = material("voyager-boom", (0.5, 0.5, 0.48), rough=0.4, metal=0.6, scratches=0.2)
+record_gold = material("voyager-record", (0.78, 0.58, 0.2), rough=0.25, metal=1.0, scratches=0.2)
+cylinder("voyager-bus", (0, 0, 0), 0.9, 0.47, bus_dark, vertices=10, parent=voyager)
+cylinder("voyager-blanket", (0, 0, -0.18), 0.92, 0.14, foil_gold, vertices=10, parent=voyager)
+bpy.ops.mesh.primitive_cone_add(vertices=48, radius1=0.2, radius2=1.85, depth=0.45, location=(0, 0, 0.5))
+dish = bpy.context.object
+dish.name = "voyager-dish"
+dish.parent = voyager
+finish(dish, dish_white, smooth=40)
+for k in range(3):
+	angle = math.radians(90 + 120 * k)
+	rod(f"voyager-strut-{k}", (1.6 * math.cos(angle), 1.6 * math.sin(angle), 0.72), (0, 0, 1.55), 0.015, boom_grey, vertices=6, parent=voyager)
+cylinder("voyager-feed", (0, 0, 1.55), 0.09, 0.22, boom_grey, parent=voyager)
+cylinder("voyager-record", (0, -0.875, 0.02), 0.155, 0.015, record_gold, rotation=(90, 0, 0), parent=voyager)
+rod("voyager-rtg-boom", (0.85, 0, -0.1), (3.3, 0, -0.45), 0.03, boom_grey, vertices=8, parent=voyager)
+for k, x in enumerate((2.45, 2.85, 3.25)):
+	cylinder(f"voyager-rtg-{k}", (x, 0, -0.33 - 0.05 * k), 0.17, 0.36, bus_dark, rotation=(0, 90, 0), vertices=12, parent=voyager)
+rod("voyager-science-boom", (-0.85, 0, -0.1), (-2.8, 0, -0.35), 0.03, boom_grey, vertices=8, parent=voyager)
+box("voyager-platform", (-2.95, 0, -0.38), (0.55, 0.45, 0.38), foil_gold, bevel=0.02, parent=voyager)
+for k, (x, radius) in enumerate(((-3.05, 0.08), (-2.82, 0.06))):
+	cylinder(f"voyager-camera-{k}", (x, -0.42, -0.36), radius, 0.45, bus_dark, rotation=(90, 0, 0), parent=voyager)
+rod("voyager-magnetometer", (0.4, 0.3, 0.05), (4.8, 1.2, 3.3), 0.018, boom_grey, vertices=6, parent=voyager)
+for side in (-1, 1):
+	rod(f"voyager-antenna-{side}", (0, 0, -0.3), (side * 2.4, 0.4, -3.4), 0.01, boom_grey, vertices=6, parent=voyager)
+render_visitor(voyager, 900)
+
 # ---------------------------------------------------------------- bake the cabin
 
 # Everything inside joins into one mesh with one texture. The outsides of the

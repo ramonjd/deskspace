@@ -144,6 +144,24 @@ const GRAVITY = {
 // to where it was floating.
 const THROW = { fastest: 5, spin: 8, air: 0.25, spinAir: 0.2, restitution: 0.5, home: 2.5, pull: 1.5 };
 
+// Visitors: now and then something drifts past outside, each only ever once
+// (progress 'seen-<name>'): the first after first seconds, then one every
+// every seconds or so, held back while you're busy at the laptop or a prop.
+// Each crosses in seconds, size metres across, depth times as far out as
+// the glass, turning spin radians a second, and its line comes halfway.
+// Shooting stars come every stars seconds or so, and do come again: one
+// crosses in streak seconds, depth times as far out as the glass. Lines
+// are drafts.
+const VISITORS = {
+	first: [100, 200],
+	every: [200, 400],
+	stars: [70, 160],
+	streak: 0.9,
+	starDepth: 40,
+	teddy: { size: 0.8, depth: 1.7, seconds: 45, spin: 0.25, line: 'A teddy bear drifts past the window, turning slowly. Someone, somewhere, is missing that.' },
+	voyager: { size: 4.2, depth: 4, seconds: 70, spin: 0.04, line: "Is that Voyager 1? It should be almost a light-day from home by now. It's very lost." },
+};
+
 // The desk lamp switched off: how far its pool on the desk reaches across
 // and towards you, and how far round its bulb it's darker, in metres.
 const LAMP = { across: new Vector3(1.2, 0, 0), deep: new Vector3(0, 0, 0.9), bulb: new Vector3(0.3, 0, 0), above: new Vector3(0, 0.3, 0) };
@@ -534,6 +552,96 @@ export async function startCabin(stage, ui, laptop) {
 			});
 		}
 	});
+
+	// ------------------------------------------------------------ visitors
+
+	// Across the window, behind the glass: from just past one side of it to
+	// just past the other, at a height somewhere in its middle, out along the
+	// lines of sight through it. Cards face the camera and turn as they go.
+	const opening = new Box3().setFromObject(glass);
+	const throughGlass = (x, y, depth) => camera.position.clone().lerp(new Vector3(x, y, opening.max.z), depth);
+	const visitors = [];
+	function launch(name) {
+		const { size, depth, seconds, spin, line } = VISITORS[name];
+		progress.mark(`seen-${name}`);
+		const from = between(0, 1) < 0.5 ? -1 : 1;
+		const height = (low, high) => between(opening.min.y + low, opening.max.y - high);
+		const start = throughGlass(from * (opening.max.x + 0.5), height(0.4, 0.6), depth);
+		const end = throughGlass(-from * (opening.max.x + 0.5), height(0.4, 0.6), depth);
+		new TextureLoader().loadAsync(`/scene/${name}.webp`).then((picture) => {
+			picture.colorSpace = SRGBColorSpace;
+			const card = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ map: picture, transparent: true, depthWrite: false, toneMapped: false }));
+			card.scale.set(size, (size * picture.image.height) / picture.image.width, 1);
+			scene.add(card);
+			visitors.push({ card, start, end, at: performance.now() / 1000, seconds, spin: spin * (between(0, 1) < 0.5 ? -1 : 1), line, said: false });
+		});
+	}
+	// A streak of light, bright at its head.
+	const streakTexture = (() => {
+		const picture = document.createElement('canvas');
+		picture.width = 256;
+		picture.height = 16;
+		const c = picture.getContext('2d');
+		const tail = c.createLinearGradient(0, 0, 256, 0);
+		tail.addColorStop(0, 'rgb(255 245 230 / 0)');
+		tail.addColorStop(0.85, 'rgb(255 245 230 / 0.7)');
+		tail.addColorStop(1, 'rgb(255 255 255 / 1)');
+		c.fillStyle = tail;
+		c.fillRect(0, 6, 256, 4);
+		return new CanvasTexture(picture);
+	})();
+	function shootingStar() {
+		const x = between(opening.min.x + 0.3, opening.max.x - 0.3);
+		const y = between((opening.min.y + opening.max.y) / 2, opening.max.y - 0.2);
+		// Down and to one side, its bright head first.
+		const slope = between(0.3, 0.8);
+		const heading = between(0, 1) < 0.5 ? -slope : Math.PI + slope;
+		const start = throughGlass(x, y, VISITORS.starDepth);
+		const end = throughGlass(x + Math.cos(heading) * 1.2, y + Math.sin(heading) * 1.2, VISITORS.starDepth);
+		const card = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ map: streakTexture, transparent: true, depthWrite: false, blending: AdditiveBlending, toneMapped: false }));
+		const length = start.distanceTo(end) * 0.6;
+		card.scale.set(length, length / 16, 1);
+		scene.add(card);
+		visitors.push({ card, start, end, at: performance.now() / 1000, seconds: VISITORS.streak, heading, star: true });
+	}
+	function moveVisitors(now) {
+		for (const visitor of [...visitors]) {
+			const through = (now - visitor.at) / visitor.seconds;
+			if (through >= 1) {
+				scene.remove(visitor.card);
+				visitor.card.geometry.dispose();
+				visitor.card.material.dispose();
+				visitors.splice(visitors.indexOf(visitor), 1);
+				continue;
+			}
+			visitor.card.position.lerpVectors(visitor.start, visitor.end, through);
+			visitor.card.quaternion.copy(camera.quaternion);
+			if (visitor.star) {
+				visitor.card.rotateZ(visitor.heading);
+				visitor.card.material.opacity = Math.sin(Math.PI * through);
+			} else {
+				visitor.card.rotateZ(visitor.spin * (now - visitor.at));
+				if (!visitor.said && through > 0.4) {
+					visitor.said = true;
+					ui.say(visitor.line);
+				}
+			}
+		}
+	}
+	// Held back while you're up at the laptop, a prop or the card, when the
+	// window's out of sight.
+	const busy = () => usingLaptop || terminalAway || saved;
+	function nextVisitor() {
+		const unseen = ['teddy', 'voyager'].filter((name) => !progress.has(`seen-${name}`));
+		if (!unseen.length) return;
+		if (busy() || reduceMotion.matches) return setTimeout(nextVisitor, 20000);
+		launch(unseen[Math.floor(between(0, unseen.length))]);
+		setTimeout(nextVisitor, between(...VISITORS.every) * 1000);
+	}
+	function nextStar() {
+		if (!busy() && !reduceMotion.matches) shootingStar();
+		setTimeout(nextStar, between(...VISITORS.stars) * 1000);
+	}
 
 	// ------------------------------------------------------------ the phone's screen
 
@@ -1396,7 +1504,7 @@ export async function startCabin(stage, ui, laptop) {
 
 	// Things falling or thrown and the lever swinging need every frame;
 	// floating is slow enough for AMBIENT.fps.
-	const quick = (now) => now - leverSwing.at < 0.2 || blobs.size > 0 || now - plantPerk < BLOB.perk || [...moves.values()].some((move) => move.falling || move.flying);
+	const quick = (now) => now - leverSwing.at < 0.2 || visitors.some((visitor) => visitor.star) || blobs.size > 0 || now - plantPerk < BLOB.perk || [...moves.values()].some((move) => move.falling || move.flying);
 
 	function setGravity(on) {
 		gravityOn = on;
@@ -1477,6 +1585,7 @@ export async function startCabin(stage, ui, laptop) {
 		breathe(now);
 		moveLoose(now, seconds);
 		glideShip(now);
+		moveVisitors(now);
 		requestRender();
 	}
 	function startMoving() {
@@ -1847,6 +1956,8 @@ export async function startCabin(stage, ui, laptop) {
 		},
 		useLaptop,
 		readCard,
+		// For trying them out: a visitor by name, or 'star'.
+		visit: (name) => (name === 'star' ? shootingStar() : launch(name)),
 		tapeCrack,
 		squeeze,
 		waterPlant,
@@ -2056,6 +2167,9 @@ export async function startCabin(stage, ui, laptop) {
 	blink();
 	startMoving();
 	startZooming(LOOK.zoom);
+	// The first visitor and shooting star (see visitors).
+	setTimeout(nextVisitor, between(...VISITORS.first) * 1000);
+	setTimeout(nextStar, between(...VISITORS.stars) * 1000);
 	canvas.style.cursor = 'grab';
 	canvas.classList.add('ready');
 	terminalRenderer.domElement.classList.add('ready');
