@@ -3,6 +3,7 @@ import BaseHead from '../components/BaseHead.astro';
 import Laptop from '../components/Laptop.astro';
 import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
 import cabin from '../data/cabin.json';
+import copy from '../data/copy.json';
 import MORSE from '../data/morse.json';
 
 // Where things sit in the still, in percent of the 1920x1080 frame (from scene/cabin.py).
@@ -12,41 +13,35 @@ const place = ({ left, top, width, height }) =>
 // Labels near the left or right edge of the still hang inwards, not off the edge.
 const edge = ({ left, width }) => (left + width / 2 < 20 ? 'start' : left + width / 2 > 80 ? 'end' : null);
 
-// Each prop either opens a dialog or does something small.
-// Labels are rough drafts.
+// Each prop either opens a dialog or does something small. Its label and
+// line (say) are in src/data/copy.json; with the gravity off (ui.js), DO NOT
+// LOSE turns over (cabin.js) and the discs say their floating line.
 const props = [
-	{ id: 'laptop', label: 'Laptop', dialog: 'laptop-dialog' },
-	{ id: 'panel', label: 'Control panel', dialog: 'panel-dialog' },
-	{ id: 'speaker', label: 'Speaker', action: 'speaker' },
-	{ id: 'headphones', label: 'Headphones', action: 'headphones', below: true },
-	{ id: 'guitar', label: 'Guitar: play it', dialog: 'guitar-dialog', below: true },
-	{ id: 'phone', label: 'Phone: radio', dialog: 'radio-dialog' },
-	{ id: 'mug', label: 'Coffee', action: 'sip' },
-	{ id: 'plant', label: 'Plant', action: 'plant' },
-	{ id: 'notebook', label: 'Notebook', say: 'Shift notes. Call signs, hull numbers, and a lot of doodles.' },
-	{ id: 'morse', label: 'Morse card', dialog: 'morse-dialog' },
-	{ id: 'poster', label: 'Poster', say: "Rings N' Roses, live at the Cassini Division. Either the best or the worst concert I've ever been to. You just had to be there." },
-	{
-		id: 'discs',
-		label: 'Backup discs',
-		action: 'discs',
-		say: 'BACKUP 2009, PHOTOS 2011 and DO NOT LOSE, at the bottom of the pile.',
-		// With the gravity off (ui.js): DO NOT LOSE turns over (cabin.js).
-		floating: "DO NOT LOSE drifts out of the pile and turns over. There's a sticker underneath: 'backup password: flexbox'.",
-	},
-	{ id: 'sanitiser', label: 'Hand sanitiser', say: 'Kills 99.9% of germs. Out here there were none to begin with.' },
-	{ id: 'pens', label: 'Pens', say: 'Five pens, a pencil and a marker. Two of the pens work.' },
+	{ id: 'laptop', dialog: 'laptop-dialog' },
+	{ id: 'panel', dialog: 'panel-dialog' },
+	{ id: 'speaker', action: 'speaker' },
+	{ id: 'headphones', action: 'headphones', below: true },
+	{ id: 'guitar', dialog: 'guitar-dialog', below: true },
+	{ id: 'phone', dialog: 'radio-dialog' },
+	{ id: 'mug', action: 'sip' },
+	{ id: 'plant', action: 'plant' },
+	{ id: 'notebook' },
+	{ id: 'morse', dialog: 'morse-dialog' },
+	{ id: 'poster' },
+	{ id: 'discs', action: 'discs' },
+	{ id: 'sanitiser' },
+	{ id: 'pens' },
 	// The post-its along the window frame (scene/cabin.py), each with a line,
 	// most of them a nudge toward something.
-	{ id: 'note-0', label: 'Post-it: backups!!', say: 'Two exclamation marks. The discs on the desk are the backups.' },
-	{ id: 'note-1', label: 'Post-it: buy coffee', say: "By 'buy' I mean harvest brown mushrooms from the farm on level 7Z, and put them in the dehydrator/pulverizer." },
-	{ id: 'note-2', label: 'Post-it: water the plant', say: "Poor plant. There's a water pouch on the desk, but it's not meant to work while the gravity sim is on." },
-	{ id: 'note-3', label: 'Post-it: tune the G string', say: "Never stays in tune out here. The tuner's in the guitar's panel." },
-	{ id: 'note-4', label: 'Post-it: call home', say: "I would, but there's really nothing to report." },
-	{ id: 'note-5', label: 'Post-it: fix the crack', say: 'The arrow points at the crack in the glass.' },
-	{ id: 'crack', label: 'Crack in the glass', action: 'crack' },
-	{ id: 'pouch', label: 'Water pouch', action: 'pouch' },
-];
+	{ id: 'note-0' },
+	{ id: 'note-1' },
+	{ id: 'note-2' },
+	{ id: 'note-3' },
+	{ id: 'note-4' },
+	{ id: 'note-5' },
+	{ id: 'crack', action: 'crack' },
+	{ id: 'pouch', action: 'pouch' },
+].map((prop) => ({ ...prop, ...copy.props[prop.id] }));
 
 // The light outside the window blinks the laptop's password in Morse, with
 // standard timing: dot 1 unit, dash 3, 1 between symbols, 3 between letters,
@@ -819,18 +814,18 @@ const signalStyle = `<style>
 	<body>
 		<h1 class="sr-only">{SITE_TITLE}</h1>
 		<!-- Hidden until it has keyboard focus: everything the scene offers, as plain links and buttons. -->
-		<nav class="skip" aria-label="Site">
-			<p>In the cabin</p>
+		<nav class="skip" aria-label={copy.page.nav}>
+			<p>{copy.page.menuTitle}</p>
 			<ul>
-				<li><button type="button" data-prop="laptop" data-dialog="laptop-dialog">Laptop</button></li>
-				<li><button type="button" data-prop="panel" data-dialog="panel-dialog">Control panel</button></li>
-				<li><button type="button" data-prop="phone" data-dialog="radio-dialog">Radio</button></li>
-				<li><button type="button" data-prop="guitar" data-dialog="guitar-dialog">Guitar</button></li>
-				<li><button type="button" data-prop="speaker" data-action="speaker">Speaker</button></li>
-				<li><button type="button" data-prop="headphones" data-action="headphones">Headphones</button></li>
-				<li><button type="button" data-prop="morse" data-dialog="morse-dialog">Morse card</button></li>
-				<li class="live-only"><button type="button" data-prop="gravity" aria-pressed="true">Gravity</button></li>
-				<li class="live-only"><button type="button" data-prop="lamp" aria-pressed="true">Desk lamp</button></li>
+				<li><button type="button" data-prop="laptop" data-dialog="laptop-dialog">{copy.page.menu.laptop}</button></li>
+				<li><button type="button" data-prop="panel" data-dialog="panel-dialog">{copy.page.menu.panel}</button></li>
+				<li><button type="button" data-prop="phone" data-dialog="radio-dialog">{copy.page.menu.phone}</button></li>
+				<li><button type="button" data-prop="guitar" data-dialog="guitar-dialog">{copy.page.menu.guitar}</button></li>
+				<li><button type="button" data-prop="speaker" data-action="speaker">{copy.page.menu.speaker}</button></li>
+				<li><button type="button" data-prop="headphones" data-action="headphones">{copy.page.menu.headphones}</button></li>
+				<li><button type="button" data-prop="morse" data-dialog="morse-dialog">{copy.page.menu.morse}</button></li>
+				<li class="live-only"><button type="button" data-prop="gravity" aria-pressed="true">{copy.page.menu.gravity}</button></li>
+				<li class="live-only"><button type="button" data-prop="lamp" aria-pressed="true">{copy.page.menu.lamp}</button></li>
 			</ul>
 		</nav>
 		<div class="stage">
@@ -840,7 +835,7 @@ const signalStyle = `<style>
 				width="1920"
 				height="1080"
 				fetchpriority="high"
-				alt="A small spaceship cabin. A laptop on the desk sits at its login screen. Through the window behind it, Saturn and its rings. Headphones hang on a hook, a guitar hangs on the wall, and a mug, a phone, a plant and a notebook sit on the desk."
+				alt={copy.page.stillAlt}
 			/>
 			<canvas class="live" aria-hidden="true"></canvas>
 			<div class="lamp-off" aria-hidden="true"></div>
@@ -876,47 +871,43 @@ const signalStyle = `<style>
 			<!-- Without the live scene, narrow screens crop most props out of view
 			     and touch screens can't hover, so they get buttons for the props. -->
 			<div class="controls">
-				<button type="button" class="pill dock" data-prop="phone" data-dialog="radio-dialog">Radio</button>
-				<button type="button" class="pill dock" data-prop="guitar" data-dialog="guitar-dialog">Guitar</button>
-				<button type="button" class="pill dock" data-prop="speaker" data-action="speaker">Speaker</button>
-				<button type="button" class="pill dock" data-prop="headphones" data-action="headphones">Headphones</button>
+				<button type="button" class="pill dock" data-prop="phone" data-dialog="radio-dialog">{copy.page.dock.phone}</button>
+				<button type="button" class="pill dock" data-prop="guitar" data-dialog="guitar-dialog">{copy.page.dock.guitar}</button>
+				<button type="button" class="pill dock" data-prop="speaker" data-action="speaker">{copy.page.dock.speaker}</button>
+				<button type="button" class="pill dock" data-prop="headphones" data-action="headphones">{copy.page.dock.headphones}</button>
 				<button type="button" class="pill sound" aria-pressed="false">
 					<span aria-hidden="true">♪</span>
-					<span class="sound-label">Sound off</span>
+					<span class="sound-label">{copy.page.soundOff}</span>
 				</button>
 			</div>
-			<button type="button" class="pill step-back">‹ Step back (Esc)</button>
-			<div class="zoom" role="group" aria-label="Zoom">
-				<button type="button" class="pill" data-zoom="in" aria-label="Zoom in">+</button>
-				<button type="button" class="pill" data-zoom="out" aria-label="Zoom out">−</button>
+			<button type="button" class="pill step-back">{copy.page.stepBack}</button>
+			<div class="zoom" role="group" aria-label={copy.page.zoom}>
+				<button type="button" class="pill" data-zoom="in" aria-label={copy.page.zoomIn}>+</button>
+				<button type="button" class="pill" data-zoom="out" aria-label={copy.page.zoomOut}>−</button>
 			</div>
 			<p class="label" aria-hidden="true"></p>
-			<p class="hint" aria-hidden="true">Drag to look around, scroll to zoom. Click things.</p>
+			<p class="hint" aria-hidden="true">{copy.page.hint}</p>
 			<p class="toast" role="status" aria-live="polite"></p>
 		</div>
 
-		<!-- Copy in the dialogs is a rough draft, to be rewritten. -->
-		<dialog class="laptop" id="laptop-dialog" aria-label="Laptop">
-			<form method="dialog"><button class="pill close">Close</button></form>
+		<dialog class="laptop" id="laptop-dialog" aria-label={copy.laptop.dialog}>
+			<form method="dialog"><button class="pill close">{copy.page.close}</button></form>
 			<Laptop />
 		</dialog>
 
 		<dialog class="panel morse" id="morse-dialog" aria-labelledby="morse-title">
 			<header>
-				<h2 id="morse-title">Morse code</h2>
-				<form method="dialog"><button class="close">Close</button></form>
+				<h2 id="morse-title">{copy.morse.title}</h2>
+				<form method="dialog"><button class="close">{copy.page.close}</button></form>
 			</header>
 			<div class="body">
-				<p class="muted">
-					A dot is a short flash, a dash is three times as long. A short gap separates the dots and
-					dashes in a letter, a gap of three separates letters, and a gap of seven separates words.
-				</p>
+				<p class="muted">{copy.morse.about}</p>
 				<dl class="morse-table">
 					{
 						morseChart.map(([key, code]) => (
 							<div>
 								<dt>{key}</dt>
-								<dd aria-label={[...code].map((mark) => (mark === '.' ? 'dot' : 'dash')).join(' ')}>
+								<dd aria-label={[...code].map((mark) => (mark === '.' ? copy.morse.dot : copy.morse.dash)).join(' ')}>
 									{[...code].map((mark) => (mark === '.' ? '·' : '–')).join('')}
 								</dd>
 							</div>
@@ -928,31 +919,28 @@ const signalStyle = `<style>
 
 		<dialog class="panel radio" id="radio-dialog" aria-labelledby="radio-title">
 			<header>
-				<h2 id="radio-title">Radio</h2>
-				<form method="dialog"><button class="close">Close</button></form>
+				<h2 id="radio-title">{copy.radio.title}</h2>
+				<form method="dialog"><button class="close">{copy.page.close}</button></form>
 			</header>
 			<div class="body">
-				<p class="now">Drift</p>
-				<p class="muted">Made up in your browser as it plays: slow chords and a few plucked notes.</p>
+				<p class="now">{copy.radio.track}</p>
+				<p class="muted">{copy.radio.about}</p>
 				<p class="radio-controls">
-					<button class="chip play" type="button" aria-pressed="false">Play</button>
-					<button class="chip headphones" type="button" aria-pressed="false">Headphones off</button>
+					<button class="chip play" type="button" aria-pressed="false">{copy.radio.play}</button>
+					<button class="chip headphones" type="button" aria-pressed="false">{copy.radio.headphonesOff}</button>
 				</p>
 				<label class="volume">
-					Volume
+					{copy.radio.volume}
 					<input type="range" min="0" max="1" step="0.01" value="0.6" />
 				</label>
-				<p class="muted">With the headphones on the hook, the music leaks out of them, muffled.</p>
+				<p class="muted">{copy.radio.leak}</p>
 				<!-- The end: a voice message from Earth, once the ship's clear (ui.js).
 				     Lines appear one by one. -->
 				<div class="call" hidden>
-					<p><button class="chip call-play" type="button">Play the message from Earth</button></p>
+					<p><button class="chip call-play" type="button">{copy.call.play}</button></p>
 					<div class="call-lines" aria-live="polite">
-						<p class="muted" hidden>Voice message from Earth. Sent 1 hour 19 minutes ago: the time light takes to get here.</p>
-						<p hidden>Dana: Hi, it's Dana, programme chair of the Frontend Developer Conference. We heard what you did for GOAT. Everyone has. That was you, wasn't it?</p>
-						<p hidden>Dana: We'd like you to give the closing keynote. Every panel should have a way back to a person: that's the talk, and nobody else can give it.</p>
-						<p hidden>Dana: It's on Tuesday, nine o'clock, on Earth. Get here and the stage is yours.</p>
-						<p hidden>GOAT, on the open channel: I heard that. We're going your way, Administrator. There's a bunk in the old GPU bay.</p>
+						<p class="muted" hidden>{copy.call.intro}</p>
+						{copy.call.lines.map((line) => <p hidden>{line}</p>)}
 					</div>
 				</div>
 			</div>
@@ -961,25 +949,24 @@ const signalStyle = `<style>
 		<!-- Once GOAT has come back for you (cabin.js, or straight away without the live scene). -->
 		<dialog class="panel" id="end-dialog" aria-labelledby="end-title">
 			<header>
-				<h2 id="end-title">End of part one</h2>
-				<form method="dialog"><button class="close">Close</button></form>
+				<h2 id="end-title">{copy.end.title}</h2>
+				<form method="dialog"><button class="close">{copy.page.close}</button></form>
 			</header>
 			<div class="body">
-				<p>GOAT is waiting outside the window, engines ticking over. Earth is 1.4 billion kilometres away, and it's Tuesday or nothing.</p>
-				<p>Next stop: Jupiter.</p>
-				<p class="muted">Thanks for playing DeskSpace.</p>
+				{copy.end.body.map((paragraph) => <p>{paragraph}</p>)}
+				<p class="muted">{copy.end.thanks}</p>
 			</div>
 		</dialog>
 
 		<dialog class="panel sync" id="panel-dialog" aria-labelledby="panel-title">
 			<header>
-				<h2 id="panel-title">Control panel</h2>
-				<form method="dialog"><button class="close">Close</button></form>
+				<h2 id="panel-title">{copy.panel.title}</h2>
+				<form method="dialog"><button class="close">{copy.page.close}</button></form>
 			</header>
 			<div class="body">
-				<p class="sync-state">Fault E-07: out of sync.</p>
-				<p class="muted">It flashes a pattern; play it back. Three rounds, each longer.</p>
-				<div class="sync-pad" role="group" aria-label="Panel buttons">
+				<p class="sync-state">{copy.panel.fault}</p>
+				<p class="muted">{copy.panel.about}</p>
+				<div class="sync-pad" role="group" aria-label={copy.panel.buttons}>
 					{
 						[
 							['red', '#e8382c'],
@@ -987,11 +974,11 @@ const signalStyle = `<style>
 							['blue', '#2f6fe0'],
 							['yellow', '#f0c419'],
 						].map(([name, colour]) => (
-							<button type="button" class="sync-button" data-colour={name} aria-label={name} style={`--colour:${colour}`} />
+							<button type="button" class="sync-button" data-colour={name} aria-label={copy.panel.colours[name]} style={`--colour:${colour}`} />
 						))
 					}
 				</div>
-				<p><button class="chip sync-start" type="button">Start</button> <span class="sync-round muted"></span></p>
+				<p><button class="chip sync-start" type="button">{copy.panel.start}</button> <span class="sync-round muted"></span></p>
 				<p class="sync-status" aria-live="polite"></p>
 			</div>
 		</dialog>
@@ -1000,24 +987,24 @@ const signalStyle = `<style>
 			class="panel guitar"
 			id="guitar-dialog"
 			aria-labelledby="guitar-title"
-			data-out-of-tune="That sounded off. Something on the guitar is out of tune."
+			data-out-of-tune={copy.guitar.outOfTune}
 		>
 			<header>
-				<h2 id="guitar-title">Guitar</h2>
-				<form method="dialog"><button class="close">Close</button></form>
+				<h2 id="guitar-title">{copy.guitar.title}</h2>
+				<form method="dialog"><button class="close">{copy.page.close}</button></form>
 			</header>
 			<div class="body">
-				<div class="strings" role="group" aria-label="Strings, low to high">
+				<div class="strings" role="group" aria-label={copy.guitar.strings}>
 					{
 						['E', 'A', 'D', 'G', 'B', 'e'].map((name, i) => (
-							<button type="button" class="string" data-string={i} aria-label={`${name} string`}>
+							<button type="button" class="string" data-string={i} aria-label={copy.guitar.string.replace('#', name)}>
 								<span class="string-name">{name}</span>
 								<span class="string-line" style={`--thick:${3.2 - i * 0.45}px`} />
 							</button>
 						))
 					}
 				</div>
-				<p class="chords" role="group" aria-label="Chords">
+				<p class="chords" role="group" aria-label={copy.guitar.chords}>
 					{
 						['Open', 'Em', 'G', 'C', 'D', 'Am'].map((chord, i) => (
 							<button class="chip" type="button" data-chord={chord} aria-pressed={i === 0 ? 'true' : 'false'}>
@@ -1025,25 +1012,22 @@ const signalStyle = `<style>
 							</button>
 						))
 					}
-					<button class="chip strum" type="button">Strum</button>
+					<button class="chip strum" type="button">{copy.guitar.strum}</button>
 				</p>
-				<p class="muted">
-					Click or drag across the strings. Keys 1 to 6 pluck them, the space bar strums.
-				</p>
+				<p class="muted">{copy.guitar.help}</p>
 				<div class="tuner">
 					<p>
-						<strong>Tuner app</strong>
-						<span class="tuner-reading" aria-live="polite" data-in-tune="in tune" data-flat="cents flat" data-sharp="cents sharp">Pluck a string.</span>
+						<strong>{copy.guitar.tuner}</strong>
+						<span class="tuner-reading" aria-live="polite" data-in-tune={copy.guitar.inTune} data-flat={copy.guitar.flat} data-sharp={copy.guitar.sharp}>{copy.guitar.pluck}</span>
 					</p>
 					<p>
-						G peg <button class="chip" type="button" data-peg="-1">Loosen</button>
-						<button class="chip" type="button" data-peg="1">Tighten</button>
+						{copy.guitar.peg} <button class="chip" type="button" data-peg="-1">{copy.guitar.loosen}</button>
+						<button class="chip" type="button" data-peg="1">{copy.guitar.tighten}</button>
 					</p>
 				</div>
-				<div class="songbook" aria-label="Songbook">
-					<p><strong>Songs I can nearly play</strong></p>
-					<p>Knockin' on Heaven's Door: G D Am, G D C</p>
-					<p>Space Oddity, the Ground Control bit: C Em, C Em</p>
+				<div class="songbook" aria-label={copy.guitar.songbook}>
+					<p><strong>{copy.guitar.songbookTitle}</strong></p>
+					{copy.guitar.songs.map((song) => <p>{song}</p>)}
 				</div>
 			</div>
 		</dialog>

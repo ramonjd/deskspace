@@ -5,6 +5,7 @@
 // when the live scene is running (window.cabin), the camera flies to a prop
 // before its dialog opens, and the gravity lever works (once it's enabled).
 
+import copy from '../data/copy.json';
 import { progress } from './progress.js';
 
 const MUFFLED = 650;
@@ -101,7 +102,7 @@ export function initCabin(stage) {
 		master.gain.cancelScheduledValues(ctx.currentTime);
 		master.gain.setTargetAtTime(on ? 1 : 0, ctx.currentTime, 0.08);
 		soundButton.setAttribute('aria-pressed', String(on));
-		soundButton.querySelector('.sound-label').textContent = on ? 'Sound on' : 'Sound off';
+		soundButton.querySelector('.sound-label').textContent = on ? copy.page.soundOn : copy.page.soundOff;
 	}
 
 	// Anything you play turns sound on: playing it is asking for sound.
@@ -140,12 +141,6 @@ export function initCabin(stage) {
 		if (flew) dialog.addEventListener('close', () => window.cabin?.flyHome(), { once: true });
 	}
 
-	const mugLines = [
-		'Sip. Still hot.',
-		'Sip. Half gone.',
-		'Sip. Going cold.',
-		"Empty. The galley's closed until Tuesday.",
-	];
 	let sips = 0;
 	let headphonesOn = false;
 	const beacon = document.querySelector('.beacon[data-signal]');
@@ -156,32 +151,32 @@ export function initCabin(stage) {
 			say(hotspot.dataset.say);
 		},
 		sip() {
-			say(mugLines[sips % mugLines.length]);
+			say(copy.props.mug.sips[sips % copy.props.mug.sips.length]);
 			sips += 1;
 		},
 		// With the gravity off, a click tips a floating blob of water in (cabin.js).
 		plant() {
 			if (!gravityOn && window.cabin?.waterPlant()) return;
-			say("A snake plant. It's thriving on neglect.");
+			say(copy.props.plant.look);
 		},
 		// The DO NOT LOSE case stays jammed shut until there's no gravity, and
 		// then the leak takes it until it's caught (cabin.js).
 		discs(hotspot) {
 			if (gravityOn) return say(hotspot.dataset.say);
-			say(window.cabin?.leaking() ? 'DO NOT LOSE is drifting off toward the crack in the window. Grab it!' : hotspot.dataset.floating);
+			say(window.cabin?.leaking() ? copy.props.discs.drifting : hotspot.dataset.floating);
 		},
 		// Taping the crack stops the leak, for good.
 		crack() {
-			if (progress.has('taped')) return say("Taped. It'll hold. Probably.");
+			if (progress.has('taped')) return say(copy.props.crack.taped);
 			progress.mark('taped');
 			whistle(false);
 			window.cabin?.tapeCrack();
-			say('You find the gaffer tape in the drawer and tape over the crack. The whistling stops.');
+			say(copy.props.crack.tape);
 		},
 		// Squeezed with the gravity off, the pouch lets out blobs of water (cabin.js).
 		pouch() {
 			if (!gravityOn && window.cabin) return window.cabin.squeeze();
-			say('A water pouch. Squeezed with the gravity on, it would just make a puddle.');
+			say(copy.props.pouch.gravityOn);
 		},
 		// The speaker on the glass beeps along with the light outside: its dots
 		// and dashes, for anyone who can't watch it blink. With reduced motion
@@ -210,12 +205,12 @@ export function initCabin(stage) {
 				}
 				when += (on ? length : (gaps[length] ?? length)) * unit;
 			}
-			if (matchMedia('(prefers-reduced-motion: reduce)').matches) say(`Recorded the light, in case it stops: ${beacon.dataset.recording}`);
+			if (matchMedia('(prefers-reduced-motion: reduce)').matches) say(copy.props.speaker.recorded.replace('#', beacon.dataset.recording));
 		},
 		headphones() {
 			setHeadphones(!headphonesOn);
 			if (headphonesOn && !radio.playing) startRadio();
-			say(headphonesOn ? 'Headphones on.' : 'Headphones back on the hook. The music leaks out, muffled.');
+			say(headphonesOn ? copy.props.headphones.on : copy.props.headphones.off);
 		},
 	};
 
@@ -358,7 +353,7 @@ export function initCabin(stage) {
 		gravityOn = on;
 		gravityButton?.setAttribute('aria-pressed', String(on));
 		const leaking = !on && !progress.has('taped');
-		say(on ? 'Gravity on.' : leaking ? 'Gravity off. Something by the window has started whistling.' : 'Gravity off. Grab something and throw it.');
+		say(on ? copy.props.gravity.on : leaking ? copy.props.gravity.offLeaking : copy.props.gravity.off);
 		whistle(leaking);
 		if (!audio) return;
 		setGenerator(on);
@@ -412,7 +407,7 @@ export function initCabin(stage) {
 	// Any step a message waits for (Laptop.astro's data-after) brings one.
 	const messageSteps = new Set([...document.querySelectorAll('.os-messages article[data-after]')].map((article) => article.dataset.after));
 	function chime() {
-		say('New message on the laptop.');
+		say(copy.laptop.newMessage);
 		if (!audio?.on) return;
 		const { ctx, effects } = audio;
 		[880, 1320].forEach((pitch, i) => {
@@ -434,7 +429,7 @@ export function initCabin(stage) {
 	// The lever thrown while manual gravity control is locked out: a clunk,
 	// and nothing else.
 	function gravityRefused() {
-		say('Nothing happens. The lamp by the lever blinks red.');
+		say(copy.props.gravity.refused);
 		if (audio?.on) clunk();
 	}
 
@@ -530,7 +525,7 @@ export function initCabin(stage) {
 		radio.since = performance.now();
 		scheduleRadio();
 		radio.timer = setInterval(scheduleRadio, 250);
-		playButton.textContent = 'Pause';
+		playButton.textContent = copy.radio.pause;
 		playButton.setAttribute('aria-pressed', 'true');
 		window.cabin?.phoneChanged();
 	}
@@ -542,7 +537,7 @@ export function initCabin(stage) {
 		const bus = radio.bus;
 		setTimeout(() => bus.disconnect(), 3000);
 		radio.playing = false;
-		playButton.textContent = 'Play';
+		playButton.textContent = copy.radio.play;
 		playButton.setAttribute('aria-pressed', 'false');
 		window.cabin?.phoneChanged();
 	}
@@ -552,7 +547,7 @@ export function initCabin(stage) {
 		headphonesOn = on;
 		filter.frequency.setTargetAtTime(on ? CLEAR : MUFFLED, ctx.currentTime, 0.15);
 		music.gain.setTargetAtTime(on ? 1 : 0.6, ctx.currentTime, 0.15);
-		headphonesButton.textContent = on ? 'Headphones on' : 'Headphones off';
+		headphonesButton.textContent = on ? copy.radio.headphonesOn : copy.radio.headphonesOff;
 		headphonesButton.setAttribute('aria-pressed', String(on));
 		window.cabin?.phoneChanged();
 	}
@@ -604,7 +599,7 @@ export function initCabin(stage) {
 		if (progress.has('pick')) return false;
 		const { ctx } = withSound();
 		knock(ctx.currentTime, 180, 1.4);
-		say('You need a pick. These strings would shred your fingers.');
+		say(copy.guitar.noPick);
 		return true;
 	}
 
@@ -714,7 +709,7 @@ export function initCabin(stage) {
 	}
 
 	function showSynced() {
-		panelDialog.querySelector('.sync-state').textContent = 'In sync. Fault E-07 cleared.';
+		panelDialog.querySelector('.sync-state').textContent = copy.panel.synced;
 		syncStart.hidden = true;
 		syncRound.textContent = '';
 	}
@@ -722,14 +717,14 @@ export function initCabin(stage) {
 	function playPattern() {
 		sync.watching = true;
 		sync.entered = 0;
-		syncStatus.textContent = 'Watch.';
-		syncRound.textContent = `Round ${sync.round + 1} of ${SYNC.rounds.length}`;
+		syncStatus.textContent = copy.panel.watch;
+		syncRound.textContent = copy.panel.round.replace('#', sync.round + 1).replace('#', SYNC.rounds.length);
 		const step = (SYNC.on + SYNC.gap) * 1000;
 		sync.pattern.forEach((colour, i) => sync.timers.push(setTimeout(() => light(colour, SYNC.on), 700 + i * step)));
 		sync.timers.push(
 			setTimeout(() => {
 				sync.watching = false;
-				syncStatus.textContent = 'Your turn.';
+				syncStatus.textContent = copy.panel.yourTurn;
 			}, 700 + sync.pattern.length * step),
 		);
 	}
@@ -748,7 +743,7 @@ export function initCabin(stage) {
 			light(colour, 0.25);
 			if (!sync.pattern.length || sync.watching || progress.has('panel')) return;
 			if (colour !== sync.pattern[sync.entered]) {
-				syncStatus.textContent = 'Not quite. Watch again.';
+				syncStatus.textContent = copy.panel.wrong;
 				sync.watching = true;
 				sync.timers.push(setTimeout(playPattern, 900));
 				return;
@@ -759,11 +754,11 @@ export function initCabin(stage) {
 			if (sync.round === SYNC.rounds.length) {
 				progress.mark('panel');
 				showSynced();
-				syncStatus.textContent = 'The lamp turns green.';
+				syncStatus.textContent = copy.panel.done;
 				window.cabin?.panelSynced();
 				return;
 			}
-			syncStatus.textContent = 'Good.';
+			syncStatus.textContent = copy.panel.good;
 			while (sync.pattern.length < SYNC.rounds[sync.round]) sync.pattern.push(anyColour());
 			sync.watching = true;
 			sync.timers.push(setTimeout(playPattern, 900));
@@ -794,7 +789,7 @@ export function initCabin(stage) {
 	function ring() {
 		if (progress.has('ringing')) return;
 		progress.mark('ringing');
-		say('Your phone buzzes: a voice message from Earth.');
+		say(copy.call.ring);
 		if (!audio?.on) return;
 		const { ctx, effects } = audio;
 		for (const at of [0, 0.5, 1.6, 2.1]) {
