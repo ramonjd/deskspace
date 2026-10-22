@@ -44,6 +44,7 @@ import { CSS3DObject, CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import cabinData from '../data/cabin.json';
+import copy from '../data/copy.json';
 import { progress } from './progress.js';
 
 // The still is shown with object-fit: cover and object-position: 45% 60%.
@@ -150,16 +151,16 @@ const THROW = { fastest: 5, spin: 8, air: 0.25, spinAir: 0.2, restitution: 0.5, 
 // Each crosses in seconds, size metres across, depth times as far out as
 // the glass, turning spin radians a second, and its line comes halfway.
 // Shooting stars come every stars seconds or so, and do come again: one
-// crosses in streak seconds, depth times as far out as the glass. Lines
-// are drafts.
+// crosses in streak seconds, depth times as far out as the glass. Their
+// lines are in src/data/copy.json.
 const VISITORS = {
 	first: [100, 200],
 	every: [200, 400],
 	stars: [70, 160],
 	streak: 0.9,
 	starDepth: 40,
-	teddy: { size: 0.8, depth: 1.7, seconds: 45, spin: 0.25, line: 'A teddy bear drifts past the window, turning slowly. Someone, somewhere, is missing that.' },
-	voyager: { size: 4.2, depth: 4, seconds: 70, spin: 0.04, line: "Is that Voyager 1? It should be almost a light-day from home by now. It's very lost." },
+	teddy: { size: 0.8, depth: 1.7, seconds: 45, spin: 0.25, line: copy.visitors.teddy },
+	voyager: { size: 4.2, depth: 4, seconds: 70, spin: 0.04, line: copy.visitors.voyager },
 };
 
 // The desk lamp switched off: how far its pool on the desk reaches across
@@ -776,7 +777,7 @@ export async function startCabin(stage, ui, laptop) {
 		c.fillStyle = now.playing ? accent : dim;
 		c.font = '700 15px system-ui, sans-serif';
 		c.textAlign = 'center';
-		c.fillText('LIVE', 76, 627);
+		c.fillText(copy.radio.live, 76, 627);
 		if (now.playing) {
 			const seconds = Math.floor((performance.now() - now.since) / 1000);
 			c.textAlign = 'right';
@@ -1014,7 +1015,7 @@ export async function startCabin(stage, ui, laptop) {
 	lampHit.userData.prop = 'lamp';
 	scene.add(lampHit);
 	hits.push(lampHit);
-	labels.lamp = 'Desk lamp';
+	labels.lamp = copy.props.lamp.label;
 	let deskLampOn = true;
 	const shadeAt = new Vector3();
 	function onStage(point) {
@@ -1083,7 +1084,7 @@ export async function startCabin(stage, ui, laptop) {
 	// Each prop's picking box goes with its main piece: the pens' with the cup,
 	// the discs' with the loose disc.
 	for (const hit of hits) scene.getObjectByName(`float-${hit.userData.prop}-0`)?.attach(hit);
-	labels.gravity = 'Gravity: on';
+	labels.gravity = copy.props.gravity.labelOn;
 
 	// The lamp beside the lever: the green it is in the still, or amber.
 	const lamp = scene.getObjectByName('gravity-lamp');
@@ -1114,17 +1115,17 @@ export async function startCabin(stage, ui, laptop) {
 	// The plectrum: pinned under the mug while there's gravity; floating free,
 	// a click pockets it, and the guitar can be played (ui.js checks for 'pick').
 	const plectrum = scene.getObjectByName('float-pick-0');
-	labels.plectrum = 'Plectrum';
+	labels.plectrum = copy.props.plectrum.label;
 	function pocket() {
 		plectrum.visible = false;
 		loose.splice(loose.indexOf(plectrum), 1);
 		moves.delete(plectrum);
 	}
 	function takePlectrum() {
-		if (gravityOn) return ui.say("It's pinned under the mug, and the mug won't budge.");
+		if (gravityOn) return ui.say(copy.props.plectrum.pinned);
 		progress.mark('pick');
 		pocket();
-		ui.say('You pocket the plectrum.');
+		ui.say(copy.props.plectrum.pocketed);
 		requestRender();
 	}
 	// What each loose thing is doing, floating or falling, since when, and from where.
@@ -1166,7 +1167,7 @@ export async function startCabin(stage, ui, laptop) {
 		thing.position.y += LEAK.rattle * Math.sin(now * 47);
 		if (!move.stuck) {
 			move.stuck = true;
-			ui.say('DO NOT LOSE is stuck against the crack, rattling. Grab it before it goes.');
+			ui.say(copy.props.discs.stuck);
 		}
 	}
 	function catchCase(quiet = false) {
@@ -1183,7 +1184,7 @@ export async function startCabin(stage, ui, laptop) {
 		} else {
 			moves.set(notLose, float);
 		}
-		if (!quiet) ui.say("Caught it: DO NOT LOSE, nearly lost. There's a sticker underneath: 'backup password: flexbox'.");
+		if (!quiet) ui.say(copy.props.discs.caught);
 		requestRender();
 	}
 	function tapeCrack() {
@@ -1206,14 +1207,14 @@ export async function startCabin(stage, ui, laptop) {
 	let plantPerk = -Infinity;
 	let squeezed = false;
 	function squeeze() {
-		if (reduceMotion.matches) return ui.say('You squeeze out a blob of water and nudge it over to the plant. It drinks it in.');
+		if (reduceMotion.matches) return ui.say(copy.props.pouch.reducedMotion);
 		const blob = new Mesh(blobGeometry, blobMaterial);
 		blob.position.copy(pouch.position).add(new Vector3(0, 0.1, 0.05));
 		scene.add(blob);
 		blobs.set(blob, { velocity: new Vector3(between(-0.03, 0.03), 0.06, 0.04), phase: between(0, Math.PI * 2) });
 		radii.set(blob, BLOB.radius);
 		if (blobs.size > BLOB.most) burst(blobs.keys().next().value);
-		if (!squeezed) ui.say('A wobbling blob of water. Throw it at the plant, or click the plant to tip it in.');
+		if (!squeezed) ui.say(copy.props.pouch.blob);
 		squeezed = true;
 		requestRender();
 	}
@@ -1255,7 +1256,7 @@ export async function startCabin(stage, ui, laptop) {
 			if (plantBox.containsPoint(blob.position)) {
 				burst(blob);
 				plantPerk = now;
-				ui.say('The snake plant drinks it in. It looks pleased with itself.');
+				ui.say(copy.props.plant.drinks);
 				continue;
 			}
 			let hardest = hitRoom(blob.position, state.velocity, BLOB.radius);
@@ -1263,7 +1264,7 @@ export async function startCabin(stage, ui, laptop) {
 			if (hardest > BLOB.splat) {
 				burst(blob);
 				ui.bump(hardest);
-				ui.say('Splat.');
+				ui.say(copy.props.pouch.splat);
 			}
 		}
 	}
@@ -1508,7 +1509,7 @@ export async function startCabin(stage, ui, laptop) {
 
 	function setGravity(on) {
 		gravityOn = on;
-		labels.gravity = on ? 'Gravity: on' : 'Gravity: off';
+		labels.gravity = on ? copy.props.gravity.labelOn : copy.props.gravity.labelOff;
 		if (labelled === 'gravity') label.textContent = labels.gravity;
 		const now = performance.now() / 1000;
 		const landings = [];
@@ -1931,7 +1932,7 @@ export async function startCabin(stage, ui, laptop) {
 					setLimits(view.look);
 					controls.enabled = true;
 					controls.update();
-					hint.textContent = matchMedia('(hover: none)').matches ? 'Pinch to zoom.' : 'Point and scroll to zoom.';
+					hint.textContent = matchMedia('(hover: none)').matches ? copy.page.zoomHintTouch : copy.page.zoomHint;
 					hint.classList.add('shown');
 					clearTimeout(hintTimer);
 					hintTimer = setTimeout(hideHint, 4000);
@@ -2175,7 +2176,7 @@ export async function startCabin(stage, ui, laptop) {
 	terminalRenderer.domElement.classList.add('ready');
 	// Once the fade has finished, the HTML hotspots over the still step aside.
 	canvas.addEventListener('transitionend', () => (stage.dataset.live = ''), { once: true });
-	if (matchMedia('(hover: none)').matches) hint.textContent = 'Drag to look around, pinch to zoom. Tap things.';
+	if (matchMedia('(hover: none)').matches) hint.textContent = copy.page.hintTouch;
 	hint.classList.add('shown');
 	hintTimer = setTimeout(hideHint, 6000);
 	return api;

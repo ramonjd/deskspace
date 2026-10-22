@@ -5,8 +5,11 @@
 // The password is what the light outside the window blinks. Only its SHA-256
 // is kept here, so reading the page's code doesn't give it away.
 
+import copy from '../data/copy.json';
 import { progress } from './progress.js';
 import { createSnake, step, turn } from './snake.js';
+
+const words = copy.laptop;
 
 const PASSWORD_SHA256 = '2c50624bea38c570f59fb28e3fffd11330856e2cd512760acaff9eb82d3df8ca';
 // Snake: a 30 by 18 grid, moving this many cells a second.
@@ -228,7 +231,7 @@ const PHOTOS = {
 		blob(66, 50.5, 1.8, 1.8);
 		tone(0.9);
 		box(82, 50, 14, 5);
-		return [{ text: 'HACK DAY', x: 48, y: 9.5, size: 9 }];
+		return [{ text: words.photos.album.hackday.banner, x: 48, y: 9.5, size: 9 }];
 	},
 	launch({ s, tone, blob, box }) {
 		tone(0.08);
@@ -265,11 +268,7 @@ const PHOTOS = {
 		s.fill();
 		tone(0.2);
 		for (let x = 3; x < 96; x += 8) blob(x, 61, 3.5, 4);
-		return [
-			{ text: 'Every panel should', x: 66, y: 12, size: 4.2 },
-			{ text: 'have a way back', x: 66, y: 20, size: 4.2 },
-			{ text: 'to a person.', x: 66, y: 28, size: 4.2 },
-		];
+		return words.photos.album.launch.slide.map((text, i) => ({ text, x: 66, y: 12 + i * 8, size: 4.2 }));
 	},
 };
 
@@ -364,7 +363,7 @@ export function initLaptop(os) {
 			progress.mark('unlocked');
 			show('home');
 		} else {
-			loginStatus.textContent = typed ? 'Incorrect password.' : '';
+			loginStatus.textContent = typed ? words.lock.wrong : '';
 		}
 	});
 
@@ -391,7 +390,7 @@ export function initLaptop(os) {
 				button.innerHTML = `<span>${unread ? '•' : ''}</span><span></span><span></span>`;
 				button.children[1].textContent = article.querySelector('h3').textContent;
 				button.children[2].textContent = article.querySelector('.os-subject').textContent;
-				button.setAttribute('aria-label', `${unread ? 'Unread. ' : ''}${button.children[1].textContent}: ${button.children[2].textContent}`);
+				button.setAttribute('aria-label', `${unread ? `${words.messages.unread} ` : ''}${button.children[1].textContent}: ${button.children[2].textContent}`);
 				button.addEventListener('click', () => {
 					listMessages(article);
 					focus();
@@ -407,8 +406,8 @@ export function initLaptop(os) {
 
 	function countUnread() {
 		const unread = shown().filter((article) => !progress.has(`read-${article.dataset.id}`)).length;
-		screens.home.querySelector('.os-unread').textContent = unread ? `${unread} unread message${unread > 1 ? 's' : ''}.` : 'No new messages.';
-		screens.home.querySelector('[data-go="messages"]').textContent = unread ? `Messages (${unread})` : 'Messages';
+		screens.home.querySelector('.os-unread').textContent = unread > 1 ? words.home.unreadMany.replace('#', unread) : unread ? words.home.unreadOne : words.home.noneUnread;
+		screens.home.querySelector('[data-go="messages"]').textContent = unread ? words.home.messagesUnread.replace('#', unread) : words.home.menu.messages;
 	}
 
 	// ------------------------------------------------------------ the registry
@@ -425,7 +424,7 @@ export function initLaptop(os) {
 		goat.hidden = true;
 		recent.hidden = false;
 		if (!/^[A-Z]{4}$/.test(call)) {
-			result.textContent = 'Call signs are four letters.';
+			result.textContent = words.registry.fourLetters;
 			return;
 		}
 		// The ship that came past, once it has: its number is GOAT's letters.
@@ -440,7 +439,7 @@ export function initLaptop(os) {
 		const row = records[call];
 		result.textContent = row
 			? [...row.cells].map((cell, i) => `${screens.registry.querySelectorAll('th')[i].textContent}: ${cell.textContent}`).join(' · ')
-			: `No record of ${call}.`;
+			: words.registry.noRecord.replace('#', call);
 	});
 
 	// ------------------------------------------------------------ settings
@@ -453,10 +452,10 @@ export function initLaptop(os) {
 	const gravityState = screens.settings.querySelector('.os-gravity-state');
 	const showGravity = () => {
 		const enabled = progress.has('gravity-enabled');
-		gravityButton.textContent = enabled ? 'Enabled' : 'Enable';
+		gravityButton.textContent = enabled ? words.settings.enabled : words.settings.enable;
 		gravityButton.setAttribute('aria-pressed', String(enabled));
-		if (enabled) gravityState.textContent = 'Enabled. The lever by your knees works.';
-		else if (progress.has('panel')) gravityState.textContent = 'Fault cleared. Ready to enable.';
+		if (enabled) gravityState.textContent = words.settings.gravityWorks;
+		else if (progress.has('panel')) gravityState.textContent = words.settings.gravityReady;
 	};
 	showGravity();
 	progress.listen(showGravity);
@@ -478,7 +477,7 @@ export function initLaptop(os) {
 	const alerts = screens.settings.querySelector('[data-setting="alerts"]');
 	const showAlerts = () => {
 		const on = !progress.has('alerts-off');
-		alerts.textContent = on ? 'On' : 'Off';
+		alerts.textContent = on ? words.settings.on : words.settings.off;
 		alerts.setAttribute('aria-pressed', String(on));
 	};
 	showAlerts();
@@ -487,10 +486,10 @@ export function initLaptop(os) {
 			const setting = button.dataset.setting;
 			if (setting !== 'reset') resetArmed = false;
 			if (setting === 'gravity') {
-				if (!progress.has('panel')) settingsStatus.textContent = "Can't enable: re-sync the control panel first.";
+				if (!progress.has('panel')) settingsStatus.textContent = words.settings.gravityNotYet;
 				else if (!progress.has('gravity-enabled')) {
 					progress.mark('gravity-enabled');
-					settingsStatus.textContent = 'Manual gravity control enabled.';
+					settingsStatus.textContent = words.settings.gravityDone;
 				}
 			}
 			if (setting === 'restore') {
@@ -513,7 +512,7 @@ export function initLaptop(os) {
 			if (setting === 'reset') {
 				if (!resetArmed) {
 					resetArmed = true;
-					settingsStatus.textContent = 'Press Reset again to forget everything.';
+					settingsStatus.textContent = words.settings.resetAgain;
 				} else {
 					progress.reset();
 					location.reload();
@@ -634,7 +633,7 @@ export function initLaptop(os) {
 		c.arc((fx + 0.5) * cell, (fy + 0.5) * cell, cell * 0.3, 0, Math.PI * 2);
 		c.fill();
 		for (const [x, y] of game.body) c.fillRect(x * cell + 2, y * cell + 2, cell - 4, cell - 4);
-		score.textContent = `Score ${game.eaten}`;
+		score.textContent = words.snake.score.replace('#', game.eaten);
 	}
 
 	function pause() {
@@ -658,11 +657,11 @@ export function initLaptop(os) {
 		// Bitten three times, then dead: three dots eaten, then the snake bites itself.
 		if (game.eaten === 3 && game.death === 'self') {
 			progress.mark('snake');
-			snakeStatus.textContent = 'Incoming message.';
+			snakeStatus.textContent = words.snake.incoming;
 			show('messages', { open: articles.find((article) => article.dataset.id === 'major-tom') });
 			return;
 		}
-		snakeStatus.textContent = `Game over. Score ${game.eaten}. Space to play again.`;
+		snakeStatus.textContent = words.snake.gameOver.replace('#', game.eaten);
 	}
 
 	function steer(direction) {

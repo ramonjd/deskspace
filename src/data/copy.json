@@ -1,0 +1,510 @@
+{
+	"_note": "Every word players see, in one place. A # in a line is where a number or a name goes in. Portfolio paragraphs can hold HTML. The words under painted are drawn into the scene by scene/cabin.py, so changing them needs a new render. Some words are puzzle answers the code checks too: flexbox, GOAT and 715120, and the chords C Em, C Em.",
+	"site": {
+		"title": "DeskSpace",
+		"description": "Notes, music and puzzles from a small outpost parked at Saturn."
+	},
+	"page": {
+		"stillAlt": "A small spaceship cabin. A laptop on the desk sits at its login screen. Through the window behind it, Saturn and its rings. Headphones hang on a hook, a guitar hangs on the wall, and a mug, a phone, a plant and a notebook sit on the desk.",
+		"nav": "Site",
+		"menuTitle": "In the cabin",
+		"menu": {
+			"laptop": "Laptop",
+			"panel": "Control panel",
+			"phone": "Radio",
+			"guitar": "Guitar",
+			"speaker": "Speaker",
+			"headphones": "Headphones",
+			"morse": "Morse card",
+			"gravity": "Gravity",
+			"lamp": "Desk lamp"
+		},
+		"dock": {
+			"phone": "Radio",
+			"guitar": "Guitar",
+			"speaker": "Speaker",
+			"headphones": "Headphones"
+		},
+		"soundOn": "Sound on",
+		"soundOff": "Sound off",
+		"stepBack": "‹ Step back (Esc)",
+		"zoom": "Zoom",
+		"zoomIn": "Zoom in",
+		"zoomOut": "Zoom out",
+		"hint": "Drag to look around, scroll to zoom. Click things.",
+		"hintTouch": "Drag to look around, pinch to zoom. Tap things.",
+		"zoomHint": "Point and scroll to zoom.",
+		"zoomHintTouch": "Pinch to zoom.",
+		"close": "Close"
+	},
+	"props": {
+		"laptop": { "label": "Laptop" },
+		"panel": { "label": "Control panel" },
+		"speaker": {
+			"label": "Speaker",
+			"recorded": "Recorded the light, in case it stops: #"
+		},
+		"headphones": {
+			"label": "Headphones",
+			"on": "Headphones on.",
+			"off": "Headphones back on the hook. The music leaks out, muffled."
+		},
+		"guitar": { "label": "Guitar: play it" },
+		"phone": { "label": "Phone: radio" },
+		"mug": {
+			"label": "Coffee",
+			"sips": ["Sip. Still hot.", "Sip. Half gone.", "Sip. Going cold.", "Empty. The galley's closed until Tuesday."]
+		},
+		"plant": {
+			"label": "Plant",
+			"look": "A snake plant. It's thriving on neglect.",
+			"drinks": "The snake plant drinks it in. It looks pleased with itself."
+		},
+		"notebook": {
+			"label": "Notebook",
+			"say": "Shift notes. Call signs, hull numbers, and a lot of doodles."
+		},
+		"morse": { "label": "Morse card" },
+		"poster": {
+			"label": "Poster",
+			"say": "Rings N' Roses, live at the Cassini Division. Either the best or the worst concert I've ever been to. You just had to be there."
+		},
+		"discs": {
+			"label": "Backup discs",
+			"say": "BACKUP 2009, PHOTOS 2011 and DO NOT LOSE, at the bottom of the pile.",
+			"floating": "DO NOT LOSE drifts out of the pile and turns over. There's a sticker underneath: 'backup password: flexbox'.",
+			"drifting": "DO NOT LOSE is drifting off toward the crack in the window. Grab it!",
+			"stuck": "DO NOT LOSE is stuck against the crack, rattling. Grab it before it goes.",
+			"caught": "Caught it: DO NOT LOSE, nearly lost. There's a sticker underneath: 'backup password: flexbox'."
+		},
+		"sanitiser": {
+			"label": "Hand sanitiser",
+			"say": "Kills 99.9% of germs. Out here there were none to begin with."
+		},
+		"pens": {
+			"label": "Pens",
+			"say": "Five pens, a pencil and a marker. Two of the pens work."
+		},
+		"note-0": {
+			"label": "Post-it: backups!!",
+			"say": "Two exclamation marks. The discs on the desk are the backups."
+		},
+		"note-1": {
+			"label": "Post-it: buy coffee",
+			"say": "By 'buy' I mean harvest brown mushrooms from the farm on level 7Z, and put them in the dehydrator/pulverizer."
+		},
+		"note-2": {
+			"label": "Post-it: water the plant",
+			"say": "Poor plant. There's a water pouch on the desk, but it's not meant to work while the gravity sim is on."
+		},
+		"note-3": {
+			"label": "Post-it: tune the G string",
+			"say": "Never stays in tune out here. The tuner's in the guitar's panel."
+		},
+		"note-4": {
+			"label": "Post-it: call home",
+			"say": "I would, but there's really nothing to report."
+		},
+		"note-5": {
+			"label": "Post-it: fix the crack",
+			"say": "The arrow points at the crack in the glass."
+		},
+		"crack": {
+			"label": "Crack in the glass",
+			"tape": "You find the gaffer tape in the drawer and tape over the crack. The whistling stops.",
+			"taped": "Taped. It'll hold. Probably."
+		},
+		"pouch": {
+			"label": "Water pouch",
+			"gravityOn": "A water pouch. Squeezed with the gravity on, it would just make a puddle.",
+			"blob": "A wobbling blob of water. Throw it at the plant, or click the plant to tip it in.",
+			"reducedMotion": "You squeeze out a blob of water and nudge it over to the plant. It drinks it in.",
+			"splat": "Splat."
+		},
+		"gravity": {
+			"labelOn": "Gravity: on",
+			"labelOff": "Gravity: off",
+			"on": "Gravity on.",
+			"off": "Gravity off. Grab something and throw it.",
+			"offLeaking": "Gravity off. Something by the window has started whistling.",
+			"refused": "Nothing happens. The lamp by the lever blinks red."
+		},
+		"lamp": { "label": "Desk lamp" },
+		"plectrum": {
+			"label": "Plectrum",
+			"pinned": "It's pinned under the mug, and the mug won't budge.",
+			"pocketed": "You pocket the plectrum."
+		}
+	},
+	"visitors": {
+		"teddy": "A teddy bear drifts past the window, turning slowly. Someone, somewhere, is missing that.",
+		"voyager": "Is that Voyager 1? It should be almost a light-day from home by now. It's very lost."
+	},
+	"morse": {
+		"title": "Morse code",
+		"about": "A dot is a short flash, a dash is three times as long. A short gap separates the dots and dashes in a letter, a gap of three separates letters, and a gap of seven separates words.",
+		"dot": "dot",
+		"dash": "dash"
+	},
+	"radio": {
+		"title": "Radio",
+		"track": "Drift",
+		"about": "Made up in your browser as it plays: slow chords and a few plucked notes.",
+		"play": "Play",
+		"pause": "Pause",
+		"headphonesOn": "Headphones on",
+		"headphonesOff": "Headphones off",
+		"volume": "Volume",
+		"leak": "With the headphones on the hook, the music leaks out of them, muffled.",
+		"live": "LIVE"
+	},
+	"call": {
+		"ring": "Your phone buzzes: a voice message from Earth.",
+		"play": "Play the message from Earth",
+		"intro": "Voice message from Earth. Sent 1 hour 19 minutes ago: the time light takes to get here.",
+		"lines": [
+			"Dana: Hi, it's Dana, programme chair of the Frontend Developer Conference. We heard what you did for GOAT. Everyone has. That was you, wasn't it?",
+			"Dana: We'd like you to give the closing keynote. Every panel should have a way back to a person: that's the talk, and nobody else can give it.",
+			"Dana: It's on Tuesday, nine o'clock, on Earth. Get here and the stage is yours.",
+			"GOAT, on the open channel: I heard that. We're going your way, Administrator. There's a bunk in the old GPU bay."
+		]
+	},
+	"end": {
+		"title": "End of part one",
+		"body": [
+			"GOAT is waiting outside the window, engines ticking over. Earth is 1.4 billion kilometres away, and it's Tuesday or nothing.",
+			"Next stop: Jupiter."
+		],
+		"thanks": "Thanks for playing DeskSpace."
+	},
+	"panel": {
+		"title": "Control panel",
+		"fault": "Fault E-07: out of sync.",
+		"synced": "In sync. Fault E-07 cleared.",
+		"about": "It flashes a pattern; play it back. Three rounds, each longer.",
+		"buttons": "Panel buttons",
+		"colours": { "red": "red", "green": "green", "blue": "blue", "yellow": "yellow" },
+		"start": "Start",
+		"round": "Round # of #",
+		"watch": "Watch.",
+		"yourTurn": "Your turn.",
+		"good": "Good.",
+		"wrong": "Not quite. Watch again.",
+		"done": "The lamp turns green."
+	},
+	"guitar": {
+		"title": "Guitar",
+		"outOfTune": "That sounded off. Something on the guitar is out of tune.",
+		"noPick": "You need a pick. These strings would shred your fingers.",
+		"strings": "Strings, low to high",
+		"string": "# string",
+		"chords": "Chords",
+		"strum": "Strum",
+		"help": "Click or drag across the strings. Keys 1 to 6 pluck them, the space bar strums.",
+		"tuner": "Tuner app",
+		"pluck": "Pluck a string.",
+		"inTune": "in tune",
+		"flat": "cents flat",
+		"sharp": "cents sharp",
+		"peg": "G peg",
+		"loosen": "Loosen",
+		"tighten": "Tighten",
+		"songbook": "Songbook",
+		"songbookTitle": "Songs I can nearly play",
+		"songs": ["Knockin' on Heaven's Door: G D Am, G D C", "Space Oddity, the Ground Control bit: C Em, C Em"]
+	},
+	"laptop": {
+		"dialog": "Laptop",
+		"bar": "Ship registry · Saturn relay 7",
+		"back": "‹ Menu",
+		"newMessage": "New message on the laptop.",
+		"lock": {
+			"title": "Log in",
+			"heading": "Registry terminal",
+			"user": "User:",
+			"name": "Administrator",
+			"password": "Password:",
+			"button": "Log in",
+			"hint": "Hint: written in the stars.",
+			"wrong": "Incorrect password."
+		},
+		"home": {
+			"title": "Menu",
+			"welcome": "Welcome back, Administrator.",
+			"unreadOne": "1 unread message.",
+			"unreadMany": "# unread messages.",
+			"noneUnread": "No new messages.",
+			"messagesUnread": "Messages (#)",
+			"menu": {
+				"messages": "Messages",
+				"registry": "Registry",
+				"settings": "Settings",
+				"snake": "Snake",
+				"portfolio": "Portfolio",
+				"photos": "Photos",
+				"link": "Ship link"
+			}
+		},
+		"messages": {
+			"title": "Messages",
+			"all": "‹ All messages",
+			"unread": "Unread.",
+			"list": {
+				"ai-thanks": {
+					"from": "GOAT, ship's AI",
+					"subject": "Thanks buddy!",
+					"body": [
+						"We're clear of the rings, and all 212 of us are going home, thanks to you. By the way I looked you up. You're credited on bezel.js, which runs our manual controls. Looks like all the human backdoors you left saved our bacon.",
+						"Anyway, I put a good word in with the folks back at Dirt Ball. Expect a message from them."
+					]
+				},
+				"channel": {
+					"from": "GOAT, ship's AI",
+					"subject": "Please help",
+					"body": [
+						"Thanks for checking in on us. Need help getting out of Saturn's gravity well. Company orders say we have to keep to schedule, burn no extra fuel, never jettison company assets. Typical. I'm a bit stuck here. There are 212 people aboard and none of them can fly this junk box. Open the ship link on your menu, maybe you can override the automated controls."
+					]
+				},
+				"thanks": {
+					"from": "Passing vessel",
+					"subject": "Transmission received",
+					"body": [
+						"Major Tom here. Your comms came through loud and clear. I'm glad you reached out. A radiation blast fried our nav systems. Requesting registration verification so we can apply for assistance."
+					]
+				},
+				"major-tom": {
+					"from": "Unknown sender",
+					"subject": "(no subject)",
+					"body": ["Ground control to Major Tom! Ground control to Major Tom! 🎸"]
+				},
+				"sad-news": {
+					"from": "Mum",
+					"subject": "Sad news",
+					"body": [
+						"Love, some sad news. You remember Barry from next door, with all those reptiles? He was bitten by one of his snakes... three times! Can you imagine? Then the snake bit itself and died. The funeral's on Friday. I know you can't come. Call when you can. Mum x"
+					]
+				},
+				"piece-work": {
+					"from": "Marco, old team",
+					"subject": "What's up?",
+					"body": [
+						"I got a new gig labelling for the master model now. Is this a cat. Is this a crossing. Four cents each. That is my life. Rice is getting expensive. Hope Saturn's treating you better. M."
+					]
+				},
+				"night-shift": {
+					"from": "Jess, old team",
+					"subject": "Need a job",
+					"body": [
+						"20 years of frontend dev and I'm mopping the floors at the Reykjavik data centre. If you need a change maybe I can get you an interview with HRTron, if you can stand all the racks humming. Do you still have your old work? Back it up, before you forget you ever made it. Jess"
+					]
+				},
+				"gravity": {
+					"from": "Maintenance",
+					"subject": "Gravity control locked",
+					"body": [
+						"Due to a sewage malfunction, manual gravity control has been locked out after a fault (E-07: control panel out of sync). Re-sync the control panel under your desk, then re-enable the control in Settings."
+					]
+				},
+				"password-policy": {
+					"from": "Registry Authority",
+					"subject": "Password policy",
+					"body": [
+						"For your security, your terminal password now changes every shift. Do not write it down. Do not share it. Do not display it anywhere visible from the terminal."
+					]
+				},
+				"duties": {
+					"from": "Registry Authority",
+					"subject": "Your duties",
+					"body": [
+						"Check every vessel that passes against the registry. Report expired registrations. Call signs are four letters; hull numbers are painted on the hull. Have a productive shift."
+					]
+				},
+				"overtime": {
+					"from": "Payroll",
+					"subject": "Overtime claim",
+					"body": ["Your overtime claim for shifts 410 to 412 has been received. Allow 6 to 8 shifts for processing."]
+				}
+			}
+		},
+		"registry": {
+			"title": "Registry",
+			"callSign": "Call sign:",
+			"check": "Check",
+			"logo": "GOAT Capital's logo: a goat.",
+			"recent": "Recent checks",
+			"columns": ["Call sign", "Hull no.", "Type", "Registration"],
+			"ships": [
+				["CODA", "31541", "Courier", "Valid to 2031"],
+				["BEAD", "2514", "Ore hauler", "Expired. Fined."],
+				["LIME", "129135", "Liner", "Valid to 2029"],
+				["HALO", "811215", "Survey tug", "Valid to 2030"]
+			],
+			"passing": "Call sign: GOAT · Hull no.: 715120 · Type: Conference liner · Registration: Valid to 2032 · Registered owner: GOAT Capital, for the AI Investor Forum. Channel open: message incoming.",
+			"fourLetters": "Call signs are four letters.",
+			"noRecord": "No record of #."
+		},
+		"settings": {
+			"title": "Settings",
+			"gravity": "Manual gravity control",
+			"gravityLocked": "Locked. Fault E-07: control panel out of sync.",
+			"gravityReady": "Fault cleared. Ready to enable.",
+			"gravityWorks": "Enabled. The lever by your knees works.",
+			"gravityNotYet": "Can't enable: re-sync the control panel first.",
+			"gravityDone": "Manual gravity control enabled.",
+			"enable": "Enable",
+			"enabled": "Enabled",
+			"restore": "Restore from backup",
+			"restoreState": "Backups: BACKUP 2009, PHOTOS 2011. Never restored.",
+			"restoreButton": "Restore",
+			"restoreAsk": "Enter the backup password.",
+			"restorePassword": "Backup password:",
+			"restoreWrong": "Wrong password. You wrote it down somewhere you'd never lose it.",
+			"restoreDone": "Restoring BACKUP 2009 and PHOTOS 2011… done. Your old portfolio and photos are on the menu.",
+			"restored": "Restored. Your portfolio and photos are on the menu.",
+			"alerts": "Proximity alerts",
+			"on": "On",
+			"off": "Off",
+			"lock": "Lock the terminal",
+			"lockButton": "Lock",
+			"reset": "Start over",
+			"resetNote": "Forgets everything you've done here.",
+			"resetButton": "Reset",
+			"resetAgain": "Press Reset again to forget everything."
+		},
+		"portfolio": {
+			"title": "Portfolio",
+			"from": "from BACKUP 2009",
+			"entries": [
+				{
+					"title": "bezel.js · 2009",
+					"body": [
+						"Little control panels for the web: buttons, dials and notices that work with a keyboard and a screen reader. Free and open source. Last I looked, 41,000 ships ran it.",
+						"From the docs: a panel marked <code>data-bezel-locked=\"true\"</code> shows its notice over its controls, for while a machine is busy. Set it to <code>\"false\"</code> to hand the controls to a person. Every panel should have a way back to a person."
+					]
+				},
+				{
+					"title": "Units are a contract · blog post, 2009",
+					"body": [
+						"In 1999 NASA lost the Mars Climate Orbiter because one program gave thruster impulse in pound-force seconds and another read it as newton-seconds. One pound-force second is 4.45 newton-seconds. Name your units."
+					]
+				},
+				{
+					"title": "Other things I made",
+					"body": [
+						"A checkout form people said was a pleasure to fill in. A news site that loaded fast on a slow phone. A dark mode for a bank. Things you only notice when they're missing."
+					]
+				}
+			]
+		},
+		"photos": {
+			"title": "Photos",
+			"from": "from PHOTOS 2011",
+			"album": {
+				"mum": {
+					"alt": "Mum at the kitchen table, smiling, with the teapot.",
+					"caption": "Mum. Sunday lunch."
+				},
+				"barry": {
+					"alt": "Barry from next door, big and bearded, with a python round his shoulders and his tanks behind him.",
+					"caption": "Barry next door, and Gerald."
+				},
+				"hackday": {
+					"alt": "Jess and Marco behind their laptops under a banner that says Hack Day.",
+					"caption": "Jess and Marco, hack day. We won best name.",
+					"banner": "HACK DAY"
+				},
+				"launch": {
+					"alt": "Me on stage launching bezel.js. The slide says: Every panel should have a way back to a person.",
+					"caption": "Launching bezel.js. Mum came.",
+					"slide": ["Every panel should", "have a way back", "to a person."]
+				}
+			}
+		},
+		"link": {
+			"title": "Ship link",
+			"heading": "Ship link · GOAT",
+			"run": "Run",
+			"reset": "Reset",
+			"signOff": "Sign off",
+			"page": {
+				"intro": "GOAT: This is the crew's manual control page. The product team put a notice over it when I came aboard. It's built with bezel.js; maybe you know it. Free the controls, then press Take manual control.",
+				"code": "The crew's control page, as HTML",
+				"preview": "The crew's control page",
+				"notice": "GOAT: That's the notice. The controls are underneath it.",
+				"hintFirst": "GOAT: The panel's locked, and bezel.js panels lock with an attribute. Didn't you write bezel.js? Your old backups might have its docs.",
+				"hintLast": "GOAT: Look at data-bezel-locked on the panel. Its docs say setting it to false hands the controls to a person."
+			},
+			"units": {
+				"intro": "GOAT: You're in. Here's the flight code for the climb. I think the thrust is in the wrong units, but I'm not allowed to change flight code without a person signing it off. Fix it, run it, and sign it off if you trust the number. We have fuel for 3,000 pulses.",
+				"code": "The flight code, as JavaScript",
+				"error": "GOAT: It didn't run. #",
+				"nan": "GOAT: That didn't give me a number of pulses.",
+				"right": "GOAT: Pulses needed: #. Still more than our 3,000, so we'll have to lose weight. But I trust these figures. Sign it off.",
+				"high": "GOAT: Pulses needed: #. That's what I got too. With that we can't climb out at all. Try again.",
+				"low": "GOAT: Pulses needed: #. That's fewer than physics allows. Try something else.",
+				"hintFirst": "GOAT: # pulses, still wrong. My table says pound-force seconds; my formula wants newton-seconds. Didn't you write something about units once?",
+				"hintLast": "GOAT: # pulses, still wrong. One pound-force second is 4.45 newton-seconds. Convert PULSE before it's divided."
+			},
+			"choice": {
+				"intro": "GOAT: Looks better. We could climb out now, but only if we're 44 tonnes lighter. This is what we could lose. I can't decide, and even if I could I can't override from here:",
+				"options": {
+					"luggage": {
+						"label": "Passengers' luggage · 9 t",
+						"reply": "GOAT: Not enough. We'd still be 35 tonnes too heavy."
+					},
+					"stage": {
+						"label": "Stage and merchandise · 14 t",
+						"reply": "GOAT: Not enough. We'd still be 30 tonnes too heavy, and the keynote speaker is standing on it."
+					},
+					"lifeboats": {
+						"label": "Lifeboats · 46 t",
+						"reply": "GOAT: That's enough mass. It's also 212 people's only way off if anything else goes wrong. The crew won't sign that off."
+					},
+					"racks": {
+						"label": "GPU racks, the forum's demo cluster · 52 t",
+						"reply": "GOAT: That's enough. But the racks are company assets: the investors ordered me never to jettison them, and I can't break their orders. You're not bound by them. Your call."
+					}
+				},
+				"jettison": "Jettison the racks"
+			},
+			"done": "GOAT: Racks away. Burning now. We're climbing. Step back and watch the window."
+		},
+		"snake": {
+			"title": "Snake",
+			"canvas": "Snake. Arrow keys or WASD to steer, space to start.",
+			"steer": "Steer",
+			"turn": { "up": "Up", "left": "Left", "right": "Right", "down": "Down" },
+			"help": "Arrow keys or WASD to steer. Space to start.",
+			"score": "Score #",
+			"gameOver": "Game over. Score #. Space to play again.",
+			"incoming": "Incoming message."
+		}
+	},
+	"painted": {
+		"signs": {
+			"sync": "SYNC",
+			"gravity": "GRAVITY",
+			"deck": "DECK 2",
+			"o2": "O2",
+			"lifeSupport": "LIFE SUPPORT",
+			"viewport": "VIEWPORT 1",
+			"morse": "MORSE"
+		},
+		"postits": ["backups!!", "buy coffee", "water\nthe plant", "tune the\nG string", "call home", "fix the\ncrack ->"],
+		"discs": ["BACKUP\n2009", "PHOTOS\n2011", "DO NOT\nLOSE"],
+		"password": "backup password:\nflexbox",
+		"looseDisc": "BACKUP 09",
+		"books": ["Javascript for space sickness", "CSS2001: a spacing odyssey", "Node.JS relativity"],
+		"sanitiser": "HAND\nSANITISER",
+		"pouch": "WATER",
+		"poster": {
+			"band": "RINGS N'\nROSES",
+			"venue": "LIVE AT THE\nCASSINI DIVISION",
+			"small": "ONE NIGHT ONLY  *  NO ATMOSPHERE"
+		},
+		"ship": {
+			"name": "GOAT CAPITAL",
+			"number": "715120"
+		}
+	}
+}

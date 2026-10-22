@@ -69,5 +69,5 @@ Saturn's size and ring edges, and the moons' sizes and distances, come from NASA
 
 ## Still to do
 
-- Rewrite the draft copy: the dialogs, the toasts, the post-it notes and the poster (both in `scene/cabin.py`) and the site description.
+- Rewrite the draft copy. All of it is in `src/data/copy.json`; the words under `painted` (post-its, poster, labels) need a new render to show.
 - Add real music to the radio. It plays generated music for now.

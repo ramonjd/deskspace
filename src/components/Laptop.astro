@@ -4,8 +4,13 @@
 // src/scripts/laptop.js runs it. In the live scene it sits on the 3D
 // screen; without the live scene it opens in a dialog.
 //
-// All the words here are rough drafts, to be rewritten. Messages are
-// newest first; data-after names a step the player has to have done first.
+// The words are in src/data/copy.json, messages newest first. A message
+// waits for the step AFTER names, if any, to be done.
+
+import copy from '../data/copy.json';
+
+const words = copy.laptop;
+const AFTER = { 'ai-thanks': 'clear', channel: 'goat', thanks: 'song', 'major-tom': 'snake' };
 
 // The rescue at the end (laptop.js): the crew's control page and the flight
 // code the ship's AI sends, as the player first sees them.
@@ -32,342 +37,219 @@ function pulsesNeeded() {
 
 <div class="os" id="laptop-os" data-screen="lock">
 	<header class="os-bar">
-		<span>Ship registry · Saturn relay 7</span>
+		<span>{words.bar}</span>
 		<span class="os-clock"></span>
 	</header>
 
-	<section class="os-screen os-lock" data-screen-name="lock" aria-label="Log in">
-		<p class="os-big">Registry terminal</p>
+	<section class="os-screen os-lock" data-screen-name="lock" aria-label={words.lock.title}>
+		<p class="os-big">{words.lock.heading}</p>
 		<form class="os-login">
-			<p class="os-field">User: <span>Administrator</span></p>
+			<p class="os-field">{words.lock.user} <span>{words.lock.name}</span></p>
 			<label class="os-field">
-				Password:
+				{words.lock.password}
 				<input name="password" type="password" autocomplete="off" spellcheck="false" />
 			</label>
-			<button class="os-button" type="submit">Log in</button>
+			<button class="os-button" type="submit">{words.lock.button}</button>
 		</form>
-		<p class="os-dim">Hint: written in the stars.</p>
+		<p class="os-dim">{words.lock.hint}</p>
 		<p class="os-status" aria-live="polite"></p>
 	</section>
 
-	<section class="os-screen" data-screen-name="home" aria-label="Menu" hidden>
-		<p class="os-big">Welcome back, Administrator.</p>
+	<section class="os-screen" data-screen-name="home" aria-label={words.home.title} hidden>
+		<p class="os-big">{words.home.welcome}</p>
 		<p class="os-dim os-unread"></p>
 		<nav class="os-menu">
-			<button class="os-button" type="button" data-go="messages">Messages</button>
-			<button class="os-button" type="button" data-go="registry">Registry</button>
-			<button class="os-button" type="button" data-go="settings">Settings</button>
-			<button class="os-button" type="button" data-go="snake">Snake</button>
-			<button class="os-button" type="button" data-go="portfolio" data-after="restored" hidden>Portfolio</button>
-			<button class="os-button" type="button" data-go="photos" data-after="restored" hidden>Photos</button>
-			<button class="os-button" type="button" data-go="link" data-after="goat" hidden>Ship link</button>
+			<button class="os-button" type="button" data-go="messages">{words.home.menu.messages}</button>
+			<button class="os-button" type="button" data-go="registry">{words.home.menu.registry}</button>
+			<button class="os-button" type="button" data-go="settings">{words.home.menu.settings}</button>
+			<button class="os-button" type="button" data-go="snake">{words.home.menu.snake}</button>
+			<button class="os-button" type="button" data-go="portfolio" data-after="restored" hidden>{words.home.menu.portfolio}</button>
+			<button class="os-button" type="button" data-go="photos" data-after="restored" hidden>{words.home.menu.photos}</button>
+			<button class="os-button" type="button" data-go="link" data-after="goat" hidden>{words.home.menu.link}</button>
 		</nav>
 	</section>
 
-	<section class="os-screen" data-screen-name="messages" aria-label="Messages" hidden>
-		<p class="os-title"><button class="os-back" type="button" data-go="home">‹ Menu</button> Messages</p>
+	<section class="os-screen" data-screen-name="messages" aria-label={words.messages.title} hidden>
+		<p class="os-title"><button class="os-back" type="button" data-go="home">{words.back}</button> {words.messages.title}</p>
 		<ul class="os-list"></ul>
-		<button class="os-back os-to-list" type="button" hidden>‹ All messages</button>
+		<button class="os-back os-to-list" type="button" hidden>{words.messages.all}</button>
 		<div class="os-messages">
-			<article data-id="ai-thanks" data-after="clear">
-				<h3>GOAT, ship's AI</h3>
-				<p class="os-subject">Thanks buddy!</p>
-				<p>
-					We're clear of the rings, and all 212 of us are going home, thanks to you.
-					By the way I looked you up. You're credited on bezel.js, which runs our manual controls. 
-					Looks like all the human backdoors you left saved our bacon.
-				</p>
-				<p>
-					Anyway, I put a good word in with the folks back at Dirt Ball. Expect a message from them.
-				</p>
-			</article>
-			<article data-id="channel" data-after="goat">
-				<h3>GOAT, ship's AI</h3>
-				<p class="os-subject">Please help</p>
-				<p>
-					Thanks for checking in on us. Need help getting out of Saturn's gravity well.
-					Company orders say we have to keep to schedule, burn no extra fuel, never jettison company assets. Typical.
-					I'm a bit stuck here. There are 212 people aboard and none of them can fly this junk box. 
-					Open the ship link on your menu, maybe you can override the automated controls.
-				</p>
-			</article>
-			<article data-id="thanks" data-after="song">
-				<h3>Passing vessel</h3>
-				<p class="os-subject">Transmission received</p>
-				<p>
-					Major Tom here. Your comms came through loud and clear. I'm glad you reached out.
-					A radiation blast fried our nav systems. Requesting registration verification so we can apply for assistance. 
-				</p>
-			</article>
-			<article data-id="major-tom" data-after="snake">
-				<h3>Unknown sender</h3>
-				<p class="os-subject">(no subject)</p>
-				<p>Ground control to Major Tom! Ground control to Major Tom! 🎸</p>
-			</article>
-			<article data-id="sad-news">
-				<h3>Mum</h3>
-				<p class="os-subject">Sad news</p>
-				<p>
-					Love, some sad news. You remember Barry from next door, with all those reptiles? He was
-					bitten by one of his snakes... three times! Can you imagine? Then the snake bit itself and died.
-					The funeral's on Friday. I know you can't come.
-					Call when you can. Mum x
-				</p>
-			</article>
-			<article data-id="piece-work">
-				<h3>Marco, old team</h3>
-				<p class="os-subject">What's up?</p>
-				<p>
-					I got a new gig labelling for the master model now. Is this a cat. Is this a crossing. Four cents each. That is my life.
-					Rice is getting expensive. Hope Saturn's treating you better. M.
-				</p>
-			</article>
-			<article data-id="night-shift">
-				<h3>Jess, old team</h3>
-				<p class="os-subject">Need a job</p>
-				<p>
-					20 years of frontend dev and I'm mopping the floors at the Reykjavik data centre. 
-					If you need a change maybe I can get you an interview with HRTron, if you can stand all the racks humming. 
-					Do you still have your old work? Back it up, before you forget you ever made it. Jess
-				</p>
-			</article>
-			<article data-id="gravity">
-				<h3>Maintenance</h3>
-				<p class="os-subject">Gravity control locked</p>
-				<p>
-					Due to a sewage malfunction, manual gravity control has been locked out after a fault (E-07: control panel out of sync).
-					Re-sync the control panel under your desk, then re-enable the control in Settings. 
-				</p>
-			</article>
-			<article data-id="password-policy">
-				<h3>Registry Authority</h3>
-				<p class="os-subject">Password policy</p>
-				<p>
-					For your security, your terminal password now changes every shift. Do not write it down. Do not
-					share it. Do not display it anywhere visible from the terminal.
-				</p>
-			</article>
-			<article data-id="duties">
-				<h3>Registry Authority</h3>
-				<p class="os-subject">Your duties</p>
-				<p>
-					Check every vessel that passes against the registry. Report expired registrations. Call signs
-					are four letters; hull numbers are painted on the hull. Have a productive shift.
-				</p>
-			</article>
-			<article data-id="overtime">
-				<h3>Payroll</h3>
-				<p class="os-subject">Overtime claim</p>
-				<p>Your overtime claim for shifts 410 to 412 has been received. Allow 6 to 8 shifts for processing.</p>
-			</article>
+			{
+				Object.entries(words.messages.list).map(([id, message]) => (
+					<article data-id={id} data-after={AFTER[id]}>
+						<h3>{message.from}</h3>
+						<p class="os-subject">{message.subject}</p>
+						{message.body.map((paragraph) => <p>{paragraph}</p>)}
+					</article>
+				))
+			}
 		</div>
 	</section>
 
-	<section class="os-screen" data-screen-name="registry" aria-label="Registry" hidden>
-		<p class="os-title"><button class="os-back" type="button" data-go="home">‹ Menu</button> Registry</p>
+	<section class="os-screen" data-screen-name="registry" aria-label={words.registry.title} hidden>
+		<p class="os-title"><button class="os-back" type="button" data-go="home">{words.back}</button> {words.registry.title}</p>
 		<form class="os-check">
 			<label class="os-field">
-				Call sign:
+				{words.registry.callSign}
 				<input name="call" maxlength="8" autocomplete="off" spellcheck="false" />
 			</label>
-			<button class="os-button" type="submit">Check</button>
+			<button class="os-button" type="submit">{words.registry.check}</button>
 		</form>
 		<p class="os-result" aria-live="polite"></p>
-		<canvas class="os-goat" width="512" height="320" role="img" aria-label="GOAT Capital's logo: a goat." hidden></canvas>
+		<canvas class="os-goat" width="512" height="320" role="img" aria-label={words.registry.logo} hidden></canvas>
 		<div class="os-recent">
-		<p class="os-dim">Recent checks</p>
+		<p class="os-dim">{words.registry.recent}</p>
 		<table class="os-table">
 			<thead>
-				<tr><th>Call sign</th><th>Hull no.</th><th>Type</th><th>Registration</th></tr>
+				<tr>{words.registry.columns.map((column) => <th>{column}</th>)}</tr>
 			</thead>
 			<tbody>
-				<tr data-call="CODA"><td>CODA</td><td>31541</td><td>Courier</td><td>Valid to 2031</td></tr>
-				<tr data-call="BEAD"><td>BEAD</td><td>2514</td><td>Ore hauler</td><td>Expired. Fined.</td></tr>
-				<tr data-call="LIME"><td>LIME</td><td>129135</td><td>Liner</td><td>Valid to 2029</td></tr>
-				<tr data-call="HALO"><td>HALO</td><td>811215</td><td>Survey tug</td><td>Valid to 2030</td></tr>
+				{words.registry.ships.map((ship) => <tr data-call={ship[0]}>{ship.map((cell) => <td>{cell}</td>)}</tr>)}
 			</tbody>
 		</table>
 		</div>
 		<!-- The ship that passes, found once it has (see laptop.js). -->
-		<template class="os-passing">Call sign: GOAT · Hull no.: 715120 · Type: Conference liner · Registration: Valid to 2032 · Registered owner: GOAT Capital, for the AI Investor Forum. Channel open: message incoming.</template>
+		<template class="os-passing">{words.registry.passing}</template>
 	</section>
 
 	<section
 		class="os-screen"
 		data-screen-name="settings"
-		aria-label="Settings"
-		data-restore-ask="Enter the backup password."
-		data-restore-done="Restoring BACKUP 2009 and PHOTOS 2011… done. Your old portfolio and photos are on the menu."
-		data-restore-wrong="Wrong password. You wrote it down somewhere you'd never lose it."
-		data-restored="Restored. Your portfolio and photos are on the menu."
+		aria-label={words.settings.title}
+		data-restore-ask={words.settings.restoreAsk}
+		data-restore-done={words.settings.restoreDone}
+		data-restore-wrong={words.settings.restoreWrong}
+		data-restored={words.settings.restored}
 		hidden
 	>
-		<p class="os-title"><button class="os-back" type="button" data-go="home">‹ Menu</button> Settings</p>
+		<p class="os-title"><button class="os-back" type="button" data-go="home">{words.back}</button> {words.settings.title}</p>
 		<div class="os-setting">
-			<p>Manual gravity control <span class="os-dim os-gravity-state">Locked. Fault E-07: control panel out of sync.</span></p>
-			<button class="os-button" type="button" data-setting="gravity">Enable</button>
+			<p>{words.settings.gravity} <span class="os-dim os-gravity-state">{words.settings.gravityLocked}</span></p>
+			<button class="os-button" type="button" data-setting="gravity">{words.settings.enable}</button>
 		</div>
 		<div class="os-setting">
-			<p>Restore from backup <span class="os-dim os-restore-state">Backups: BACKUP 2009, PHOTOS 2011. Never restored.</span></p>
-			<button class="os-button" type="button" data-setting="restore">Restore</button>
+			<p>{words.settings.restore} <span class="os-dim os-restore-state">{words.settings.restoreState}</span></p>
+			<button class="os-button" type="button" data-setting="restore">{words.settings.restoreButton}</button>
 		</div>
 		<form class="os-restore" hidden>
 			<label class="os-field">
-				Backup password:
+				{words.settings.restorePassword}
 				<input name="password" type="password" autocomplete="off" spellcheck="false" />
 			</label>
 		</form>
 		<div class="os-setting">
-			<p>Proximity alerts</p>
-			<button class="os-button" type="button" data-setting="alerts" aria-pressed="true">On</button>
+			<p>{words.settings.alerts}</p>
+			<button class="os-button" type="button" data-setting="alerts" aria-pressed="true">{words.settings.on}</button>
 		</div>
 		<div class="os-setting">
-			<p>Lock the terminal</p>
-			<button class="os-button" type="button" data-setting="lock">Lock</button>
+			<p>{words.settings.lock}</p>
+			<button class="os-button" type="button" data-setting="lock">{words.settings.lockButton}</button>
 		</div>
 		<div class="os-setting">
-			<p>Start over <span class="os-dim">Forgets everything you've done here.</span></p>
-			<button class="os-button" type="button" data-setting="reset">Reset</button>
+			<p>{words.settings.reset} <span class="os-dim">{words.settings.resetNote}</span></p>
+			<button class="os-button" type="button" data-setting="reset">{words.settings.resetButton}</button>
 		</div>
 		<p class="os-status" aria-live="polite"></p>
 	</section>
 
-	<section class="os-screen os-portfolio" data-screen-name="portfolio" aria-label="Portfolio" hidden>
-		<p class="os-title"><button class="os-back" type="button" data-go="home">‹ Menu</button> Portfolio <span class="os-dim">from BACKUP 2009</span></p>
+	<section class="os-screen os-portfolio" data-screen-name="portfolio" aria-label={words.portfolio.title} hidden>
+		<p class="os-title"><button class="os-back" type="button" data-go="home">{words.back}</button> {words.portfolio.title} <span class="os-dim">{words.portfolio.from}</span></p>
 		<div class="os-entries">
-			<article>
-				<h3>bezel.js · 2009</h3>
-				<p>
-					Little control panels for the web: buttons, dials and notices that work with a keyboard and a
-					screen reader. Free and open source. Last I looked, 41,000 ships ran it.
-				</p>
-				<p>
-					From the docs: a panel marked <code>data-bezel-locked="true"</code> shows its notice over its
-					controls, for while a machine is busy. Set it to <code>"false"</code> to hand the controls to a
-					person. Every panel should have a way back to a person.
-				</p>
-			</article>
-			<article>
-				<h3>Units are a contract · blog post, 2009</h3>
-				<p>
-					In 1999 NASA lost the Mars Climate Orbiter because one program gave thruster impulse in
-					pound-force seconds and another read it as newton-seconds. One pound-force second is 4.45
-					newton-seconds. Name your units.
-				</p>
-			</article>
-			<article>
-				<h3>Other things I made</h3>
-				<p>
-					A checkout form people said was a pleasure to fill in. A news site that loaded fast on a slow
-					phone. A dark mode for a bank. Things you only notice when they're missing.
-				</p>
-			</article>
+			{
+				words.portfolio.entries.map((entry) => (
+					<article>
+						<h3>{entry.title}</h3>
+						{entry.body.map((paragraph) => <p set:html={paragraph} />)}
+					</article>
+				))
+			}
 		</div>
 	</section>
 
 	<!-- Stand-ins, drawn by laptop.js, until there are real photos to dither. -->
-	<section class="os-screen os-photos" data-screen-name="photos" aria-label="Photos" hidden>
-		<p class="os-title"><button class="os-back" type="button" data-go="home">‹ Menu</button> Photos <span class="os-dim">from PHOTOS 2011</span></p>
+	<section class="os-screen os-photos" data-screen-name="photos" aria-label={words.photos.title} hidden>
+		<p class="os-title"><button class="os-back" type="button" data-go="home">{words.back}</button> {words.photos.title} <span class="os-dim">{words.photos.from}</span></p>
 		<div class="os-album">
-			<figure>
-				<canvas class="os-photo" data-photo="mum" width="480" height="320" role="img" aria-label="Mum at the kitchen table, smiling, with the teapot."></canvas>
-				<figcaption>Mum. Sunday lunch.</figcaption>
-			</figure>
-			<figure>
-				<canvas class="os-photo" data-photo="barry" width="480" height="320" role="img" aria-label="Barry from next door, big and bearded, with a python round his shoulders and his tanks behind him."></canvas>
-				<figcaption>Barry next door, and Gerald.</figcaption>
-			</figure>
-			<figure>
-				<canvas class="os-photo" data-photo="hackday" width="480" height="320" role="img" aria-label="Jess and Marco behind their laptops under a banner that says Hack Day."></canvas>
-				<figcaption>Jess and Marco, hack day. We won best name.</figcaption>
-			</figure>
-			<figure>
-				<canvas class="os-photo" data-photo="launch" width="480" height="320" role="img" aria-label="Me on stage launching bezel.js. The slide says: Every panel should have a way back to a person."></canvas>
-				<figcaption>Launching bezel.js. Mum came.</figcaption>
-			</figure>
+			{
+				['mum', 'barry', 'hackday', 'launch'].map((photo) => (
+					<figure>
+						<canvas class="os-photo" data-photo={photo} width="480" height="320" role="img" aria-label={words.photos.album[photo].alt}></canvas>
+						<figcaption>{words.photos.album[photo].caption}</figcaption>
+					</figure>
+				))
+			}
 		</div>
 	</section>
 
-	<section class="os-screen os-link" data-screen-name="link" aria-label="Ship link" hidden>
-		<p class="os-title"><button class="os-back" type="button" data-go="home">‹ Menu</button> Ship link · GOAT</p>
+	<section class="os-screen os-link" data-screen-name="link" aria-label={words.link.title} hidden>
+		<p class="os-title"><button class="os-back" type="button" data-go="home">{words.back}</button> {words.link.heading}</p>
 		<div
 			class="os-step"
 			data-step="page"
-			data-notice="GOAT: That's the notice. The controls are underneath it."
-			data-hint-first="GOAT: The panel's locked, and bezel.js panels lock with an attribute. Didn't you write bezel.js? Your old backups might have its docs."
-			data-hint-last="GOAT: Look at data-bezel-locked on the panel. Its docs say setting it to false hands the controls to a person."
+			data-notice={words.link.page.notice}
+			data-hint-first={words.link.page.hintFirst}
+			data-hint-last={words.link.page.hintLast}
 			hidden
 		>
-			<p class="os-ai">
-				GOAT: This is the crew's manual control page. The product team put a notice over it when I came
-				aboard. It's built with bezel.js; maybe you know it. Free the controls, then press Take manual
-				control.
-			</p>
+			<p class="os-ai">{words.link.page.intro}</p>
 			<div class="os-work">
-				<textarea class="os-code" spellcheck="false" aria-label="The crew's control page, as HTML">{CONTROL_PAGE}</textarea>
-				<iframe class="os-preview" title="The crew's control page" sandbox="allow-same-origin"></iframe>
+				<textarea class="os-code" spellcheck="false" aria-label={words.link.page.code}>{CONTROL_PAGE}</textarea>
+				<iframe class="os-preview" title={words.link.page.preview} sandbox="allow-same-origin"></iframe>
 			</div>
 			<div class="os-run">
-				<button class="os-button" type="button" data-reset>Reset</button>
+				<button class="os-button" type="button" data-reset>{words.link.reset}</button>
 				<p class="os-reply" aria-live="polite"></p>
 			</div>
 		</div>
 		<div
 			class="os-step"
 			data-step="units"
-			data-error="GOAT: It didn't run. #"
-			data-nan="GOAT: That didn't give me a number of pulses."
-			data-right="GOAT: Pulses needed: #. Still more than our 3,000, so we'll have to lose weight. But I trust these figures. Sign it off."
-			data-high="GOAT: Pulses needed: #. That's what I got too. With that we can't climb out at all. Try again."
-			data-low="GOAT: Pulses needed: #. That's fewer than physics allows. Try something else."
-			data-hint-first="GOAT: # pulses, still wrong. My table says pound-force seconds; my formula wants newton-seconds. Didn't you write something about units once?"
-			data-hint-last="GOAT: # pulses, still wrong. One pound-force second is 4.45 newton-seconds. Convert PULSE before it's divided."
+			data-error={words.link.units.error}
+			data-nan={words.link.units.nan}
+			data-right={words.link.units.right}
+			data-high={words.link.units.high}
+			data-low={words.link.units.low}
+			data-hint-first={words.link.units.hintFirst}
+			data-hint-last={words.link.units.hintLast}
 			hidden
 		>
-			<p class="os-ai">
-				GOAT: You're in. Here's the flight code for the climb. I think the thrust is in the wrong units, but
-				I'm not allowed to change flight code without a person signing it off. Fix it, run it, and sign it off
-				if you trust the number. We have fuel for 3,000 pulses.
-			</p>
-			<textarea class="os-code" spellcheck="false" aria-label="The flight code, as JavaScript">{FLIGHT_CODE}</textarea>
+			<p class="os-ai">{words.link.units.intro}</p>
+			<textarea class="os-code" spellcheck="false" aria-label={words.link.units.code}>{FLIGHT_CODE}</textarea>
 			<div class="os-run">
-				<button class="os-button" type="button" data-run>Run</button>
-				<button class="os-button" type="button" data-reset>Reset</button>
-				<button class="os-button" type="button" data-sign hidden>Sign off</button>
+				<button class="os-button" type="button" data-run>{words.link.run}</button>
+				<button class="os-button" type="button" data-reset>{words.link.reset}</button>
+				<button class="os-button" type="button" data-sign hidden>{words.link.signOff}</button>
 				<p class="os-reply" aria-live="polite"></p>
 			</div>
 		</div>
 		<div class="os-step" data-step="choice" hidden>
-			<p class="os-ai">
-				GOAT: Looks better. We could climb out now, but only if we're 44 tonnes lighter. This is what we could
-				lose. I can't decide, and even if I could I can't override from here:
-			</p>
+			<p class="os-ai">{words.link.choice.intro}</p>
 			<div class="os-options">
-				<button class="os-button" type="button" data-reply="GOAT: Not enough. We'd still be 35 tonnes too heavy.">Passengers' luggage · 9 t</button>
-				<button class="os-button" type="button" data-reply="GOAT: Not enough. We'd still be 30 tonnes too heavy, and the keynote speaker is standing on it.">Stage and merchandise · 14 t</button>
-				<button class="os-button" type="button" data-reply="GOAT: That's enough mass. It's also 212 people's only way off if anything else goes wrong. The crew won't sign that off.">Lifeboats · 46 t</button>
-				<button class="os-button" type="button" data-racks data-reply="GOAT: That's enough. But the racks are company assets: the investors ordered me never to jettison them, and I can't break their orders. You're not bound by them. Your call.">GPU racks, the forum's demo cluster · 52 t</button>
+				<button class="os-button" type="button" data-reply={words.link.choice.options.luggage.reply}>{words.link.choice.options.luggage.label}</button>
+				<button class="os-button" type="button" data-reply={words.link.choice.options.stage.reply}>{words.link.choice.options.stage.label}</button>
+				<button class="os-button" type="button" data-reply={words.link.choice.options.lifeboats.reply}>{words.link.choice.options.lifeboats.label}</button>
+				<button class="os-button" type="button" data-racks data-reply={words.link.choice.options.racks.reply}>{words.link.choice.options.racks.label}</button>
 			</div>
 			<p class="os-reply" aria-live="polite"></p>
-			<button class="os-button os-confirm" type="button" hidden>Jettison the racks</button>
+			<button class="os-button os-confirm" type="button" hidden>{words.link.choice.jettison}</button>
 		</div>
 		<div class="os-step" data-step="done" hidden>
-			<p class="os-ai">GOAT: Racks away. Burning now. We're climbing. Step back and watch the window.</p>
+			<p class="os-ai">{words.link.done}</p>
 		</div>
 	</section>
 
-	<section class="os-screen os-snake" data-screen-name="snake" aria-label="Snake" hidden>
-		<p class="os-title"><button class="os-back" type="button" data-go="home">‹ Menu</button> Snake <span class="os-score"></span></p>
+	<section class="os-screen os-snake" data-screen-name="snake" aria-label={words.snake.title} hidden>
+		<p class="os-title"><button class="os-back" type="button" data-go="home">{words.back}</button> {words.snake.title} <span class="os-score"></span></p>
 		<div class="os-game">
-			<canvas width="1200" height="720" tabindex="0" aria-label="Snake. Arrow keys or WASD to steer, space to start."></canvas>
-			<div class="os-pad" aria-label="Steer">
-				<button class="os-button" type="button" data-turn="up" aria-label="Up">▲</button>
-				<button class="os-button" type="button" data-turn="left" aria-label="Left">◀</button>
-				<button class="os-button" type="button" data-turn="right" aria-label="Right">▶</button>
-				<button class="os-button" type="button" data-turn="down" aria-label="Down">▼</button>
+			<canvas width="1200" height="720" tabindex="0" aria-label={words.snake.canvas}></canvas>
+			<div class="os-pad" aria-label={words.snake.steer}>
+				<button class="os-button" type="button" data-turn="up" aria-label={words.snake.turn.up}>▲</button>
+				<button class="os-button" type="button" data-turn="left" aria-label={words.snake.turn.left}>◀</button>
+				<button class="os-button" type="button" data-turn="right" aria-label={words.snake.turn.right}>▶</button>
+				<button class="os-button" type="button" data-turn="down" aria-label={words.snake.turn.down}>▼</button>
 			</div>
 		</div>
-		<p class="os-dim os-snake-status" aria-live="polite">Arrow keys or WASD to steer. Space to start.</p>
+		<p class="os-dim os-snake-status" aria-live="polite">{words.snake.help}</p>
 	</section>
 </div>
 
@@ -595,7 +477,8 @@ function pulsesNeeded() {
 		font: inherit;
 		text-transform: uppercase;
 	}
-	.os code {
+	/* Portfolio paragraphs come from copy.json as HTML, outside this file's scope. */
+	.os :global(code) {
 		font: inherit;
 		border-bottom: 0.15cqw solid rgb(207 233 236 / 0.5);
 	}

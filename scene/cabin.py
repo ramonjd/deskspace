@@ -25,6 +25,9 @@ from mathutils import Matrix, Vector, noise
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 FAST = os.environ.get("FAST") == "1"
+# The words painted in the scene, kept with the site's other words.
+with open(os.path.join(ROOT, "src", "data", "copy.json")) as file:
+	PAINTED = json.load(file)["painted"]
 CAMERA = Vector((0, -5.5, 3.0))
 CAMERA_TARGET = Vector((0, 1.0, 1.9))
 LENS = 30
@@ -897,8 +900,8 @@ simon_buttons = [
 	for (name, colour), (dx, dz) in zip(SIMON.items(), ((-0.055, 0.045), (0.055, 0.045), (-0.055, -0.045), (0.055, -0.045)))
 ]
 simon_lamp = sphere("simon-lamp", PANEL_AT + Vector((0.125, -0.035, 0.085)), 0.014, led_amber, segments=12)
-stencil("simon-label", "SYNC", (PANEL_AT.x, -0.836, 1.0), (0, -1, 0), 0.055, material("luminous-sync", (0, 0, 0), emit=(0.85, 0.82, 0.62), strength=0.8))
-stencil("gravity-label", "GRAVITY", (GRAVITY_AT.x, -0.836, 1.0), (0, -1, 0), 0.055, material("luminous-paint", (0, 0, 0), emit=(0.85, 0.82, 0.62), strength=0.8))
+stencil("simon-label", PAINTED["signs"]["sync"], (PANEL_AT.x, -0.836, 1.0), (0, -1, 0), 0.055, material("luminous-sync", (0, 0, 0), emit=(0.85, 0.82, 0.62), strength=0.8))
+stencil("gravity-label", PAINTED["signs"]["gravity"], (GRAVITY_AT.x, -0.836, 1.0), (0, -1, 0), 0.055, material("luminous-paint", (0, 0, 0), emit=(0.85, 0.82, 0.62), strength=0.8))
 
 # ---------------------------------------------------------------- the laptop
 
@@ -1039,12 +1042,12 @@ bulb_at = lamp_head + aim * 0.19
 sphere("lamp-bulb", bulb_at, 0.07, material("bulb", (0, 0, 0), emit=(1.0, 0.8, 0.55), strength=12), segments=16)
 
 # Painted stencils and a vent on the walls.
-stencil("stencil-deck", "DECK 2", (-4.675, -2.2, 3.7), (1, 0, 0), 0.45, orange)
-stencil("stencil-o2", "O2", (4.675, -2.6, 3.75), (-1, 0, 0), 0.5, orange)
-stencil("stencil-life", "LIFE SUPPORT", (4.675, -2.6, 3.35), (-1, 0, 0), 0.16, rib)
+stencil("stencil-deck", PAINTED["signs"]["deck"], (-4.675, -2.2, 3.7), (1, 0, 0), 0.45, orange)
+stencil("stencil-o2", PAINTED["signs"]["o2"], (4.675, -2.6, 3.75), (-1, 0, 0), 0.5, orange)
+stencil("stencil-life", PAINTED["signs"]["lifeSupport"], (4.675, -2.6, 3.35), (-1, 0, 0), 0.16, rib)
 # In paint of its own, not the wall's, so the bake can give its letters more room (island_scale).
 stencil_paint = material("stencil-cream", (0.86, 0.79, 0.67), rough=0.55, photo="PaintedMetal012", photo_size=2.7, photo_bump=0.25, grime=0.4, dirt=0.5)
-stencil("stencil-viewport", "VIEWPORT 1", (1.5, 1.774, WINDOW["z"] - 1.12), (0, -1, 0), 0.075, stencil_paint)
+stencil("stencil-viewport", PAINTED["signs"]["viewport"], (1.5, 1.774, WINDOW["z"] - 1.12), (0, -1, 0), 0.075, stencil_paint)
 
 # Services run in the open, either side of the viewport, in front of the
 # ribs. Left, a painted pipe up from the wall at desk height to the ceiling,
@@ -1087,7 +1090,7 @@ laminate = material("laminate", (1.7, 1.65, 1.55), rough=0.2, photo="Paper006", 
 ink = material("ink", (0.04, 0.04, 0.05), rough=0.6)
 box("morse-card", card_center, (0.56, 0.004, 0.74), laminate, bevel=0.01)
 sphere("morse-pin", card_center + Vector((0, -0.012, 0.34)), 0.02, material("pin", (0.6, 0.05, 0.04), rough=0.3), segments=12)
-stencil("morse-title", "MORSE", card_center + Vector((0, -0.003, 0.28)), (0, -1, 0), 0.075, ink)
+stencil("morse-title", PAINTED["signs"]["morse"], card_center + Vector((0, -0.003, 0.28)), (0, -1, 0), 0.075, ink)
 columns = [list(MORSE)[0:13], list(MORSE)[13:26], list(MORSE)[26:36]]
 for c, keys in enumerate(columns):
 	for r, key in enumerate(keys):
@@ -1097,7 +1100,7 @@ for c, keys in enumerate(columns):
 # ---------------------------------------------------------------- clutter
 
 # Everything below is placed with a fixed random seed, so every build makes
-# the same mess. All words here are rough drafts, to be rewritten.
+# the same mess. The words painted on things are in src/data/copy.json.
 random.seed(7)
 caveat = font("caveat", "Caveat.ttf")
 marker = font("permanent-marker", "PermanentMarker-Regular.ttf")
@@ -1112,12 +1115,12 @@ def paper(name, tint):
 
 # Post-it notes stuck along the bottom of the window frame.
 POSTITS = [
-	(-2.2, (1.9, 1.7, 0.6), "backups!!", -5),
-	(-1.45, (1.9, 1.0, 1.15), "buy coffee", 4),
-	(-1.13, (1.25, 1.8, 0.95), "water\nthe plant", -3),
-	(0.27, (1.0, 1.5, 1.9), "tune the\nG string", 6),
-	(0.95, (1.9, 1.7, 0.6), "call home", -4),
-	(2.12, (1.95, 1.3, 0.6), "fix the\ncrack ->", 3),
+	(-2.2, (1.9, 1.7, 0.6), PAINTED["postits"][0], -5),
+	(-1.45, (1.9, 1.0, 1.15), PAINTED["postits"][1], 4),
+	(-1.13, (1.25, 1.8, 0.95), PAINTED["postits"][2], -3),
+	(0.27, (1.0, 1.5, 1.9), PAINTED["postits"][3], 6),
+	(0.95, (1.9, 1.7, 0.6), PAINTED["postits"][4], -4),
+	(2.12, (1.95, 1.3, 0.6), PAINTED["postits"][5], 3),
 ]
 for i, (x, tint, words, spin) in enumerate(POSTITS):
 	z = 1.86 + random.uniform(-0.02, 0.02)
@@ -1234,7 +1237,7 @@ cable("cable-strip-two-charger", [Vector(p) for p in ((strip_two - two_along * 0
 case_tray = material("case-tray", (0.03, 0.03, 0.035), rough=0.3, photo="Plastic013A", photo_size=0.4, scratches=0.15)
 case_cover = material("case-cover", (0.5, 0.52, 0.55), rough=0.08, photo="Plastic013A", photo_size=0.4, scratches=0.25, prints=0.35)
 insert = paper("disc-insert", (1.7, 1.7, 1.65))
-LABELS = ["BACKUP\n2009", "PHOTOS\n2011", "DO NOT\nLOSE"]
+LABELS = PAINTED["discs"]
 # What floats with each case besides its tray, lid and insert (FLOATERS).
 DISC_PARTS = {0: ["disc-strip-0", "disc-spine-0", "disc-sticker", "disc-password"], 1: ["disc-strip-1", "disc-spine-1"], 2: ["disc-label"]}
 cases = []
@@ -1275,7 +1278,7 @@ sticker = bpy.context.object
 sticker.name = "disc-sticker"
 sticker.scale = (0.36, 0.14, 1)
 finish(sticker, material("disc-sticker", (0, 0, 0), rough=0.85, emit=(0.34, 0.33, 0.3)))
-password = stencil("disc-password", "backup password:\nflexbox", at + Vector((0, 0, -0.0016)), (0, 0, -1), 0.032, marker_ink, typeface=marker)
+password = stencil("disc-password", PAINTED["password"], at + Vector((0, 0, -0.0016)), (0, 0, -1), 0.032, marker_ink, typeface=marker)
 with_case = Matrix.Translation(at) @ Matrix.Rotation(math.radians(turn), 4, "Z") @ Matrix.Translation(-at)
 for obj in (sticker, password):
 	obj.matrix_world = with_case @ obj.matrix_world
@@ -1290,7 +1293,7 @@ bpy.ops.mesh.primitive_circle_add(vertices=64, radius=0.075, fill_type="NGON", l
 hub = bpy.context.object
 hub.name = "disc-hub"
 finish(hub, material("disc-hub", (0.6, 0.62, 0.65), rough=0.3))
-stencil("disc-loose-label", "BACKUP 09", (-2.45, 1.40, DESK_Z + 0.0095), (0, 0, 1), 0.045, marker_ink, typeface=marker, spin=12)
+stencil("disc-loose-label", PAINTED["looseDisc"], (-2.45, 1.40, DESK_Z + 0.0095), (0, 0, 1), 0.045, marker_ink, typeface=marker, spin=12)
 
 # A stack of books under the lamp, spines turned to the chair. Each is two
 # boards and a spine round a block of pages. They have their own random, so
@@ -1298,9 +1301,9 @@ stencil("disc-loose-label", "BACKUP 09", (-2.45, 1.40, DESK_Z + 0.0095), (0, 0, 
 book_ink = {"dark": material("book-ink-dark", (0.02, 0.02, 0.025), rough=0.6), "light": material("book-ink-light", (0.85, 0.8, 0.68), rough=0.6)}
 BOOKS = [
 	# title, (length, depth, thickness), cover colour, ink, lettering size
-	("Javascript for space sickness", (0.72, 0.5, 0.11), (0.8, 0.62, 0.08), "dark", 0.046),
-	("CSS2001: a spacing odyssey", (0.66, 0.46, 0.085), (0.42, 0.09, 0.05), "light", 0.042),
-	("Node.JS relativity", (0.6, 0.42, 0.075), (0.16, 0.36, 0.14), "light", 0.04),
+	(PAINTED["books"][0], (0.72, 0.5, 0.11), (0.8, 0.62, 0.08), "dark", 0.046),
+	(PAINTED["books"][1], (0.66, 0.46, 0.085), (0.42, 0.09, 0.05), "light", 0.042),
+	(PAINTED["books"][2], (0.6, 0.42, 0.075), (0.16, 0.36, 0.14), "light", 0.04),
 ]
 shelf = random.Random(2001)
 stack_at = Vector((-3.35, 0.78, DESK_Z))
@@ -1327,7 +1330,7 @@ pump_white = material("sanitiser-pump", (1.2, 1.2, 1.2), rough=0.35, photo="Plas
 bottle = Vector((2.1, 1.35, DESK_Z))
 cylinder("sanitiser-bottle", bottle + Vector((0, 0, 0.19)), 0.085, 0.38, gel, bevel=0.02)
 cylinder("sanitiser-label", bottle + Vector((0, 0, 0.17)), 0.087, 0.15, paper("sanitiser-paper", (1.8, 1.8, 1.75)))
-stencil("sanitiser-words", "HAND\nSANITISER", bottle + Vector((0, -0.089, 0.17)), (0, -1, 0), 0.035, material("label-ink", (0.0, 0.25, 0.45), rough=0.6), typeface=anton)
+stencil("sanitiser-words", PAINTED["sanitiser"], bottle + Vector((0, -0.089, 0.17)), (0, -1, 0), 0.035, material("label-ink", (0.0, 0.25, 0.45), rough=0.6), typeface=anton)
 cylinder("sanitiser-neck", bottle + Vector((0, 0, 0.405)), 0.035, 0.05, pump_white)
 cylinder("sanitiser-pump", bottle + Vector((0, 0, 0.45)), 0.022, 0.05, pump_white)
 box("sanitiser-nozzle", bottle + Vector((0, -0.04, 0.475)), (0.045, 0.11, 0.035), pump_white, bevel=0.01)
@@ -1340,7 +1343,7 @@ pouch_facing = Matrix.Rotation(math.radians(POUCH_TURN), 3, "Z")
 box("pouch", POUCH + Vector((0, 0, 0.03)), (0.3, 0.2, 0.05), material("pouch-foil", (0.5, 0.68, 0.82), rough=0.3, metal=0.4, scratches=0.15, prints=0.2), rotation=(0, 0, POUCH_TURN), bevel=0.022)
 cylinder("pouch-spout", POUCH + pouch_facing @ Vector((0.17, 0, 0.03)), 0.022, 0.05, material("pouch-spout", (0.85, 0.85, 0.82), rough=0.4), rotation=(0, 90, POUCH_TURN))
 cylinder("pouch-cap", POUCH + pouch_facing @ Vector((0.205, 0, 0.03)), 0.03, 0.03, material("pouch-cap", (0.9, 0.35, 0.08), rough=0.45), rotation=(0, 90, POUCH_TURN))
-stencil("pouch-label", "WATER", POUCH + Vector((0, 0, 0.0565)), (0, 0, 1), 0.06, material("pouch-ink", (1.4, 1.4, 1.4), rough=0.6), typeface=anton, spin=-POUCH_TURN)
+stencil("pouch-label", PAINTED["pouch"], POUCH + Vector((0, 0, 0.0565)), (0, 0, 1), 0.06, material("pouch-ink", (1.4, 1.4, 1.4), rough=0.6), typeface=anton, spin=-POUCH_TURN)
 
 
 def web(center, radius):
@@ -1494,10 +1497,10 @@ poster_at = Vector((3.32, 1.993, 3.22))
 poster_ink_cream = material("poster-cream", (0.95, 0.88, 0.7), rough=0.8, grime=0.2)
 poster_ink_red = material("poster-red", (0.7, 0.06, 0.04), rough=0.8, grime=0.2)
 box("poster-sheet", poster_at, (0.62, 0.003, 0.92), paper("poster-paper", (0.16, 0.15, 0.14)), rotation=(0, 2, 0))
-stencil("poster-band", "RINGS N'\nROSES", poster_at + Vector((0, -0.003, 0.3)), (0, -1, 0), 0.12, poster_ink_cream, typeface=anton, spin=2)
+stencil("poster-band", PAINTED["poster"]["band"], poster_at + Vector((0, -0.003, 0.3)), (0, -1, 0), 0.12, poster_ink_cream, typeface=anton, spin=2)
 # The small print has inks of its own, so the bake can give it more room (island_scale).
-stencil("poster-venue", "LIVE AT THE\nCASSINI DIVISION", poster_at + Vector((0, -0.003, -0.31)), (0, -1, 0), 0.045, material("poster-venue", (0.7, 0.06, 0.04), rough=0.8, grime=0.2), typeface=anton, spin=2)
-stencil("poster-small", "ONE NIGHT ONLY  *  NO ATMOSPHERE", poster_at + Vector((0, -0.003, -0.41)), (0, -1, 0), 0.022, material("poster-small", (0.95, 0.88, 0.7), rough=0.8, grime=0.2), typeface=anton, spin=2)
+stencil("poster-venue", PAINTED["poster"]["venue"], poster_at + Vector((0, -0.003, -0.31)), (0, -1, 0), 0.045, material("poster-venue", (0.7, 0.06, 0.04), rough=0.8, grime=0.2), typeface=anton, spin=2)
+stencil("poster-small", PAINTED["poster"]["small"], poster_at + Vector((0, -0.003, -0.41)), (0, -1, 0), 0.022, material("poster-small", (0.95, 0.88, 0.7), rough=0.8, grime=0.2), typeface=anton, spin=2)
 # The emblem: a rose drawn as a rose curve (r = cos 5t), inside a planet's ring.
 emblem = poster_at + Vector((0, -0.0035, -0.02))
 petals = [Vector((0.15 * math.cos(5 * t) * math.cos(t), 0, 0.15 * math.cos(5 * t) * math.sin(t))) for t in (math.pi * i / 120 for i in range(241))]
@@ -2707,7 +2710,7 @@ goat_decal.data.materials.append(logo)
 goat_decal.parent = ship
 ship_parts.append(goat_decal)
 paint_white = material("ship-white", (0.9, 0.88, 0.82), rough=0.6)
-for name, text, at, size, paint in [("ship-name", "GOAT CAPITAL", (0.75, -0.427, 0.62), 0.16, material("ship-name-red", (0.45, 0.05, 0.035), rough=0.5)), ("ship-number", "715120", tuple(NUMBER_AT), 0.36, paint_white)]:
+for name, text, at, size, paint in [("ship-name", PAINTED["ship"]["name"], (0.75, -0.427, 0.62), 0.16, material("ship-name-red", (0.45, 0.05, 0.035), rough=0.5)), ("ship-number", PAINTED["ship"]["number"], tuple(NUMBER_AT), 0.36, paint_white)]:
 	lettering = stencil(name, text, at, (0, -1, 0), size, paint, typeface=anton)
 	lettering.parent = ship
 	ship_parts.append(lettering)
