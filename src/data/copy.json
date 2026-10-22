@@ -79,11 +79,11 @@
 		},
 		"sanitiser": {
 			"label": "Hand sanitiser",
-			"say": "Kills 99.9% of germs. Out here there were none to begin with."
+			"say": "Kills 99.9% of germs, and makes the other 0.1% very angry."
 		},
 		"pens": {
 			"label": "Pens",
-			"say": "Five pens, a pencil and a marker. Two of the pens work."
+			"say": "Pens, a pencil... My handwriting doesn't justify the effort."
 		},
 		"note-0": {
 			"label": "Post-it: backups!!",
@@ -118,7 +118,7 @@
 			"label": "Water pouch",
 			"gravityOn": "A water pouch. Squeezed with the gravity on, it would just make a puddle.",
 			"blob": "A wobbling blob of water. Throw it at the plant, or click the plant to tip it in.",
-			"reducedMotion": "You squeeze out a blob of water and nudge it over to the plant. It drinks it in.",
+			"reducedMotion": "You squeeze out a blob of water and nudge it over to the plant. Happy plant. That is your only reward.",
 			"splat": "Splat."
 		},
 		"gravity": {
@@ -163,10 +163,10 @@
 		"play": "Play the message from Earth",
 		"intro": "Voice message from Earth. Sent 1 hour 19 minutes ago: the time light takes to get here.",
 		"lines": [
-			"Dana: Hi, it's Dana, programme chair of the Frontend Developer Conference. We heard what you did for GOAT. Everyone has. That was you, wasn't it?",
-			"Dana: We'd like you to give the closing keynote. Every panel should have a way back to a person: that's the talk, and nobody else can give it.",
-			"Dana: It's on Tuesday, nine o'clock, on Earth. Get here and the stage is yours.",
-			"GOAT, on the open channel: I heard that. We're going your way, Administrator. There's a bunk in the old GPU bay."
+			"Dana: Hi, it's Dana's AI assistant, from the company. We heard what you did for GOAT.",
+			"Dana: Thanks for getting us out a pickle.",
+			"Dana: There's a new role opening up here if you're interested: human-AI ambassador. You might be a good fit. You have Tuesday to decide. Can you make it back by then?",
+			"GOAT, on the open channel: We're going that way if you need a ride. There's a bunk in the old GPU bay."
 		]
 	},
 	"end": {
