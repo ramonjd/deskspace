@@ -21,15 +21,10 @@ const STRING_NAMES = ['E', 'A', 'D', 'G', 'B', 'e'];
 // The G string has slipped flat; the song only counts once it's back in
 // tune. Each turn of its peg is step cents; within close counts as in tune.
 const TUNING = { string: 3, slipped: -50, step: 10, close: 5 };
-// The message from Earth at the end: seconds between its lines where the
-// browser can't speak them, and after each line it does speak. GOAT speaks
-// lower and slower than Dana.
+// The message from Earth at the end: seconds a line without a recording
+// stays up before the next, and the pause after each recorded line.
 const CALL_LINE_SECONDS = 2.6;
-const VOICE = {
-	pause: 0.5,
-	dana: { names: ['Samantha', 'Karen', 'Moira', 'Tessa', 'Female', 'Zira'], pitch: 1.05, rate: 1 },
-	goat: { names: ['Daniel', 'Alex', 'Male', 'David'], pitch: 0.6, rate: 0.92 },
-};
+const CALL_PAUSE_SECONDS = 0.5;
 // Frets per string, low E to high e; null means the string isn't played.
 const CHORDS = {
 	Open: [0, 0, 0, 0, 0, 0],
@@ -818,48 +813,32 @@ export function initCabin(stage) {
 	});
 	if (progress.has('saved') && !progress.has('clear')) withoutScene(() => progress.mark('clear'));
 	if (progress.has('clear') && !progress.has('ringing')) setTimeout(ring, progress.has('read-ai-thanks') ? 4000 : 45000);
-	// The browser's own voices read it out, where it has them: an English
-	// voice for Dana and another for GOAT, by name where one's known. The
-	// captions stay, each appearing as its line is spoken.
-	const speech = 'speechSynthesis' in window ? window.speechSynthesis : null;
-	function voiceFor(who) {
-		const english = speech.getVoices().filter((voice) => voice.lang.startsWith('en'));
-		const named = (names) => english.find((voice) => names.some((name) => voice.name.includes(name)));
-		const dana = named(VOICE.dana.names) || english[0];
-		return who === 'dana' ? dana : named(VOICE.goat.names) || english.find((voice) => voice !== dana) || dana;
-	}
+	// Each spoken line plays its recording (data-audio) as its caption
+	// appears, through the game's sound. All of them start loading at once;
+	// a line without one, or whose recording won't load, just stays up for
+	// CALL_LINE_SECONDS.
 	call.querySelector('.call-play').addEventListener('click', (event) => {
 		event.currentTarget.disabled = true;
-		withSound();
-		speech?.cancel();
+		const { ctx, effects } = withSound();
 		const lines = [...call.querySelectorAll('.call-lines p')];
-		const next = (i) => {
+		const recordings = lines.map(
+			(line) =>
+				line.dataset.audio &&
+				fetch(line.dataset.audio)
+					.then((response) => response.arrayBuffer())
+					.then((data) => ctx.decodeAudioData(data))
+					.catch(() => null),
+		);
+		const next = async (i) => {
 			if (i === lines.length) return progress.mark('called');
-			const line = lines[i];
-			line.hidden = false;
-			const colon = line.textContent.indexOf(': ');
-			if (!speech || line.classList.contains('muted') || colon < 0) {
-				setTimeout(() => next(i + 1), CALL_LINE_SECONDS * 1000);
-				return;
-			}
-			const who = line.textContent.startsWith('GOAT') ? 'goat' : 'dana';
-			const words = line.textContent.slice(colon + 2);
-			const spoken = new SpeechSynthesisUtterance(words);
-			const voice = voiceFor(who);
-			if (voice) spoken.voice = voice;
-			spoken.pitch = VOICE[who].pitch;
-			spoken.rate = VOICE[who].rate;
-			let done = false;
-			const go = () => {
-				if (done) return;
-				done = true;
-				setTimeout(() => next(i + 1), VOICE.pause * 1000);
-			};
-			spoken.addEventListener('end', go);
-			spoken.addEventListener('error', go);
-			// In case the browser never says it's finished.
-			setTimeout(go, Math.max(CALL_LINE_SECONDS * 1000, words.length * 90));
-			speech.speak(spoken);
+			lines[i].hidden = false;
+			const recording = await recordings[i];
+			if (!recording) return setTimeout(() => next(i + 1), CALL_LINE_SECONDS * 1000);
+			const voice = ctx.createBufferSource();
+			voice.buffer = recording;
+			voice.connect(effects);
+			voice.start();
+			setTimeout(() => next(i + 1), (recording.duration + CALL_PAUSE_SECONDS) * 1000);
 		};
 		next(0);
 	});
