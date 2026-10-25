@@ -935,12 +935,13 @@ const signalStyle = `<style>
 				</label>
 				<p class="muted">{copy.radio.leak}</p>
 				<!-- The end: a voice message from Earth, once the ship's clear (ui.js).
-				     Lines appear one by one. -->
+				     Lines appear one by one, each with its recording from public/audio
+				     (made with ElevenLabs from the words in copy.json). -->
 				<div class="call" hidden>
 					<p><button class="chip call-play" type="button">{copy.call.play}</button></p>
 					<div class="call-lines" aria-live="polite">
 						<p class="muted" hidden>{copy.call.intro}</p>
-						{copy.call.lines.map((line) => <p hidden>{line}</p>)}
+						{copy.call.lines.map((line, i) => <p hidden data-audio={`/audio/call-${i + 1}.mp3`}>{line}</p>)}
 					</div>
 				</div>
 			</div>

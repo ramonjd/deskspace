@@ -65,7 +65,7 @@ A full run takes about 20 minutes. `FAST=1` in front of it gives a rougher resul
 
 Small things survive close zoom for two reasons. The script raises the glTF exporter's position precision from 12 to 16 bits: at 12, everything snaps to a 2 mm grid, so lettering 1 mm in front of a card merges with it. That setting isn't an export option, so the build fails if a Blender update moves it. And small lettering painted in the same material as a big surface gets its own material, so `island_scale` can give it more of the texture; otherwise its letters take colour from their neighbours and break up.
 
-Saturn's size and ring edges, and the moons' sizes and distances, come from NASA's fact sheets. The Morse table is the ITU one, in `src/data/morse.json`, shared by the card on the wall and the chart on the page. Sounds are generated in the browser.
+Saturn's size and ring edges, and the moons' sizes and distances, come from NASA's fact sheets. The Morse table is the ITU one, in `src/data/morse.json`, shared by the card on the wall and the chart on the page. Sounds are generated in the browser, apart from the voice message from Earth: one recording per line, made with ElevenLabs, in `public/audio` (`call-1.mp3` is the first line in `call.lines` in `src/data/copy.json`). Change a line's words and its recording needs making again.
 
 ## Still to do
 
